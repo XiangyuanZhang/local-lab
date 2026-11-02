@@ -120,9 +120,19 @@ struct ContentView: View {
         .frame(minWidth: ai.panelVisible ? 1080 : 760, minHeight: 550)
         .overlay(alignment: .topLeading) {
             GeometryReader { geometry in
-                titlebarStatusPreview
+                let leading = max(280, sidebarVisible ? measuredSidebarWidth + 1 : 0) + 10
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        titlebarStatusPreview
+                        apiStatusPreview(compact: false)
+                    }.fixedSize()
+                    apiStatusPreview(compact: false).fixedSize()
+                    apiStatusPreview(compact: true).fixedSize()
+                }
+                    .frame(width: max(0, geometry.size.width - leading - 210), alignment: .leading)
                     .frame(height: geometry.safeAreaInsets.top)
-                    .padding(.leading, (sidebarVisible ? measuredSidebarWidth + 1 : 0) + 10)
+                    .clipped()
+                    .padding(.leading, leading)
                     .offset(y: -geometry.safeAreaInsets.top)
             }
             .allowsHitTesting(false)
@@ -167,13 +177,35 @@ struct ContentView: View {
         .font(.system(size: 12))
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
-        .frame(height: 32)
+        .frame(height: 36)
         .background {
             Capsule().fill(.ultraThinMaterial)
                 .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 0.7))
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("狀態欄外觀預覽：10:24，Wi-Fi，電量 78%。示例資料。")
+    }
+
+    private func apiStatusPreview(compact: Bool) -> some View {
+        HStack(spacing: compact ? 6 : 10) {
+            HStack(spacing: 5) {
+                if !compact { Image(systemName: "cpu") }
+                Text("deepseek-flash").fontWeight(.medium)
+            }.foregroundStyle(Aurora.accent)
+            Rectangle().fill(Color.secondary.opacity(0.22)).frame(width: 1, height: 14)
+            Text(compact ? "1.2k / 8.6k" : "單次 1.2k · 啟動 8.6k").monospacedDigit()
+            Text(compact ? "42/s" : "42 tok/s").monospacedDigit()
+        }
+        .font(.system(size: compact ? 10 : 11))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, compact ? 10 : 14)
+        .frame(height: 36)
+        .background {
+            Capsule().fill(.ultraThinMaterial)
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 0.7))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("API 外觀預覽：模型 deepseek-flash，單次 1200 tokens，本次啟動 8600 tokens，速度每秒 42 tokens。示例資料。")
     }
 
     private var statusPhase: StatusOrb.Phase {
