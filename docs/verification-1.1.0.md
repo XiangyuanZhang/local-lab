@@ -14,6 +14,8 @@
 - Edited the source after receiving an AI proposal: the preview displayed a stale-source warning and disabled Apply, preserving the newer edit.
 - Inspector uses a SwiftUI horizontal container inside the existing workspace split: no native inspector divider extends into the titlebar; slide/fade transition respects Reduce Motion. The user confirmed the divider and animation fixes. At the user's final request, editor height/titlebar spacing and native draggable workspace splits were restored.
 
+- Static titlebar status preview compiled and visually checked above the restored editor: 10:24, Wi-Fi icon and 78% battery. It follows the sidebar width, shares the toolbar centre line, ignores input, and has no clock, battery or network observer. Values are explicitly marked as examples for accessibility.
+
 ## Publication gates
 
 - Optimized release compilation and strict deep signature validation passed after the final inspector layout fix. Packaging verified bundle version 1.1.0 / build 4, clean committed source, ZIP integrity, and absence of credential resources.

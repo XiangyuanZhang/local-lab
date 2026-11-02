@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var importing = false
     @State private var exporting = false
     @State private var appeared = false
+    @State private var measuredSidebarWidth: CGFloat = 280
     @AppStorage("editorFontSize") private var fontSize = 14.0
     @EnvironmentObject private var appearance: AppearanceStore
     @EnvironmentObject private var ai: AIReviewStore
@@ -26,6 +27,9 @@ struct ContentView: View {
             if sidebarVisible {
                 SidebarView(store: store, background: background)
                     .frame(minWidth: 180, idealWidth: 215, maxWidth: 280)
+                    .background { GeometryReader { proxy in
+                        Color.clear.preference(key: SidebarWidthPreference.self, value: proxy.size.width)
+                    } }
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
             HStack(spacing: 0) {
@@ -114,6 +118,16 @@ struct ContentView: View {
 
         }
         .frame(minWidth: ai.panelVisible ? 1080 : 760, minHeight: 550)
+        .overlay(alignment: .topLeading) {
+            GeometryReader { geometry in
+                titlebarStatusPreview
+                    .frame(height: geometry.safeAreaInsets.top)
+                    .padding(.leading, (sidebarVisible ? measuredSidebarWidth + 1 : 0) + 10)
+                    .offset(y: -geometry.safeAreaInsets.top)
+            }
+            .allowsHitTesting(false)
+        }
+        .onPreferenceChange(SidebarWidthPreference.self) { measuredSidebarWidth = $0 }
         .tint(Aurora.accent)
         .background(WorkspaceBackdrop(store: background).ignoresSafeArea())
         .environment(\.workspaceHasBackground, background.image != nil)
@@ -137,6 +151,29 @@ struct ContentView: View {
         .onAppear { appeared = true }
         .animation(Motion.gentle, value: store.error)
         .animation(Motion.gentle, value: sidebarVisible)
+    }
+
+    // Visual prototype only: no clock, battery observers or network polling.
+    private var titlebarStatusPreview: some View {
+        HStack(spacing: 12) {
+            Text("10:24").fontWeight(.semibold).monospacedDigit()
+            Rectangle().fill(Color.secondary.opacity(0.22)).frame(width: 1, height: 12)
+            Image(systemName: "wifi")
+            HStack(spacing: 5) {
+                Text("78%").monospacedDigit()
+                Image(systemName: "battery.75percent")
+            }
+        }
+        .font(.system(size: 12))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 14)
+        .frame(height: 32)
+        .background {
+            Capsule().fill(.ultraThinMaterial)
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 0.7))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("狀態欄外觀預覽：10:24，Wi-Fi，電量 78%。示例資料。")
     }
 
     private var statusPhase: StatusOrb.Phase {
@@ -307,4 +344,9 @@ struct EditorPane: View {
     private var sourceEditor: some View {
         CodeEditor(text: Binding(get: { store.selected?.code ?? "" }, set: { store.updateCode($0) }), fontSize: fontSize, python: store.selected?.name.lowercased().hasSuffix(".py") == true)
     }
+}
+
+private struct SidebarWidthPreference: PreferenceKey {
+    static var defaultValue: CGFloat = 280
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
