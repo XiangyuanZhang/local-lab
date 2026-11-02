@@ -31,6 +31,12 @@ struct ContentView: View {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Aurora.coral)
                         Text(error).font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                        if error.contains("OSStatus"), store.hasSavedToken {
+                            Button("修復授權") { Task { _ = await store.repairKeychainAccess() } }
+                                .buttonStyle(PressableStyle(scale: 0.96))
+                                .disabled(store.repairingKeychain || store.busy)
+                                .help("重新允許這個版本的 App 讀取已儲存的 token")
+                        }
                         Button { withAnimation(Motion.quick) { store.error = nil } } label: { Image(systemName: "xmark") }
                             .buttonStyle(PressableStyle(scale: 0.9))
                             .help("關閉提示")
