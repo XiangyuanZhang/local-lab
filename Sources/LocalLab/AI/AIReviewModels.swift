@@ -98,6 +98,7 @@ struct AIReviewResponse: Equatable, Sendable {
     let summary: String
     let findings: [AIReviewFinding]
     let replacementCode: String?
+    var metrics = AIRequestMetrics()
 }
 
 struct AIReviewResult: Identifiable, Sendable {

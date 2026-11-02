@@ -9,6 +9,12 @@ final class AIReviewStore: ObservableObject {
     @Published private(set) var error: String?
     @Published private(set) var notice: String?
     @Published private(set) var lastApplied: AIReviewResult?
+    @Published private(set) var usage = AIUsageSession()
+    @Published private(set) var activeModel: String?
+    private var lastRequestedModel: String?
+    var statusModel: String {
+        activeModel ?? (lastRequestedModel == configuration.model ? usage.last?.model : nil) ?? configuration.model
+    }
     @Published var panelVisible = false
     @Published var showSettings = false
     @Published var instruction = ""
@@ -55,28 +61,38 @@ final class AIReviewStore: ObservableObject {
             // Validate before allocating or sending a network task.
             _ = try AIReviewPrompt.body(request, configuration: config)
             let id = UUID(); generation = id; isRunning = true; error = nil; notice = nil; result = nil
+            activeModel = config.model
             let client = service
             task = Task { [weak self] in
                 do {
                     let response = try await client.review(request, configuration: config, key: key)
                     try Task.checkCancellation()
                     guard let self, generation == id else { return }
+                    usage.record(response.metrics); lastRequestedModel = config.model
                     result = AIReviewResult(request: request, response: response, model: config.model,
                                             provider: try AIEndpoint(config.baseURL).base.host ?? "AI")
                     notice = request.mode == .reviewOnly ? "審碼完成 · 未更改檔案" : "修改建議已就緒 · 尚未套用"
+                } catch let measured as AIMeasuredFailure {
+                    guard let self, generation == id else { return }
+                    usage.record(measured.metrics); lastRequestedModel = config.model
+                    self.error = safe(measured.error)
                 } catch is CancellationError {
                     guard let self, generation == id else { return }
+                    usage.record(AIRequestMetrics()); lastRequestedModel = config.model
                     notice = "已取消"
                 } catch {
                     guard let self, generation == id else { return }
+                    usage.record(AIRequestMetrics()); lastRequestedModel = config.model
                     self.error = safe(error)
                 }
                 guard let self, generation == id else { return }
-                isRunning = false; task = nil
+                isRunning = false; task = nil; activeModel = nil
             }
         } catch { self.error = safe(error) }
     }
     func cancel() {
+        if isRunning { usage.record(AIRequestMetrics()); lastRequestedModel = activeModel }
+        activeModel = nil
         generation = UUID(); task?.cancel(); task = nil; isRunning = false; notice = "已取消"; error = nil
     }
     func apply(_ value: AIReviewResult, to workspace: WorkspaceStore) -> Bool {

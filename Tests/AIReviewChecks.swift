@@ -20,7 +20,7 @@ private actor FixtureAIService: AIReviewService {
             let duration = delay
             await Task.detached { try? await Task.sleep(nanoseconds: duration) }.value
         }
-        return AIReviewResponse(summary: "fixture review", findings: [], replacementCode: "print('AI_REVIEW_FIXED')\n")
+        return AIReviewResponse(summary: "fixture review", findings: [], replacementCode: "print('AI_REVIEW_FIXED')\n", metrics: AIRequestMetrics(usage: AIUsage(prompt_tokens: 120, completion_tokens: 30, total_tokens: 150), model: "fixture-reported", elapsed: 2))
     }
     func count() -> Int { requests.count }
 }
@@ -103,6 +103,22 @@ private actor FixtureAIService: AIReviewService {
             bad = payload; bad["findings"] = [["severity": "high", "line": 999, "title": "bad", "detail": "bad"]]
             try expect("Out-of-range source location accepted") { _ = try AIReviewClient.parse(envelope(bad), request: request()) }
             passed.append("review_only_strips_edits_and_malformed_truncated_tool_responses_rejected")
+            let usageWire = try JSONSerialization.data(withJSONObject: ["model": "reported-model", "usage": ["prompt_tokens": 120, "completion_tokens": 30, "total_tokens": 150]])
+            var measured = AIRequestMetrics.decode(usageWire); measured.elapsed = 2
+            try check(measured.usage?.total_tokens == 150 && measured.model == "reported-model" && measured.tokensPerSecond == 75, "Usage or average consumption rate incorrect")
+            var session = AIUsageSession(); session.record(measured); session.record(measured)
+            try check(session.totalTokens == 300 && session.lastText == "150" && session.speedText == "75.0 tok/s", "Launch accumulation incorrect")
+            session.record(AIRequestMetrics())
+            try check(session.unknownRequests == 1 && session.totalText == "≥300" && session.lastText == "—" && session.speedText == "— tok/s", "Unknown consumption represented as a false zero")
+            try check(AIUsageSession().totalTokens == 0, "Usage persisted into a fresh launch")
+            let invalidUsage = try JSONSerialization.data(withJSONObject: ["usage": ["prompt_tokens": -1, "completion_tokens": 3, "total_tokens": 2]])
+            try check(AIRequestMetrics.decode(invalidUsage).usage == nil, "Negative usage accepted")
+            measured.elapsed = 0; try check(measured.tokensPerSecond == nil, "Zero duration divided")
+            passed.append("usage_validation_launch_total_unknown_counts_and_monotonic_average_speed")
+            let battery = BatteryStatus.read([["Type": "UPS"], ["Type": "InternalBattery", "Current Capacity": 78, "Max Capacity": 100, "Is Charging": true, "Power Source State": "AC Power"]])
+            try check(battery.percent == 78 && battery.charging && battery.onACPower && battery.symbol == "battery.100percent.bolt", "Battery source or charging state incorrect")
+            try check(BatteryStatus.read([]).percent == nil && BatteryStatus.read([["Type": "InternalBattery", "Current Capacity": 20, "Max Capacity": 0]]).percent == nil, "Missing or invalid battery invented a percentage")
+            passed.append("battery_normalization_internal_source_charging_and_absent_hardware")
             let kernel = AIWorkspaceKernel()
             let workspace = WorkspaceStore(service: kernel, library: DraftLibrary(root: root.appendingPathComponent("Workspace")))
             let draft = ScriptDraft(name: "remote.py", code: "print(1 / 0)\n", remotePath: "remote.py", remoteModified: "baseline", remoteBaseContent: "print(1 / 0)\n")
@@ -137,12 +153,16 @@ private actor FixtureAIService: AIReviewService {
             try check(store.apply(result, to: workspace), "Explicit store apply failed")
             store.undo(in: workspace)
             try check(store.lastApplied == nil && workspace.selected?.code == draft.code, "Store undo failed")
-            let count = await service.count(); try check(count == 1, "Unexpected background AI requests")
+            try check(store.usage.totalTokens == 150 && store.statusModel == "fixture-reported", "Store did not publish measured usage/model")
+            store.start(draft: draft); try await wait(store)
+            try check(store.usage.totalTokens == 300 && AIReviewStore(repository: repository, service: service).usage.totalTokens == 0, "Store launch accounting not isolated")
+            let count = await service.count(); try check(count == 2, "Unexpected background AI requests")
             passed.append("store_reuses_saved_persona_and_key_no_autoapply_or_background_requests")
             let delayed = AIReviewStore(repository: repository, service: FixtureAIService(delay: 100_000_000))
             delayed.start(draft: draft); delayed.cancel()
             try await Task.sleep(nanoseconds: 200_000_000)
             try check(!delayed.isRunning && delayed.result == nil && delayed.notice == "已取消", "Cancelled request published late result")
+            try check(delayed.usage.unknownRequests == 1 && delayed.usage.totalTokens == 0, "Cancelled/late response counted twice")
             let emptyRepo = AIReviewRepository(directory: root.appendingPathComponent("NoKey"))
             let missing = AIReviewStore(repository: emptyRepo, service: service)
             missing.start(draft: draft)
@@ -154,6 +174,7 @@ private actor FixtureAIService: AIReviewService {
             if let endpoint = ProcessInfo.processInfo.environment["LOCAL_LAB_TEST_AI_ENDPOINT"] {
                 let client = AIReviewClient(); var network = defaults; network.baseURL = endpoint; network.model = "review-fixture"
                 let response = try await client.review(request(), configuration: network, key: "test-ai-only")
+                try check(response.metrics.usage?.total_tokens == 150 && (response.metrics.elapsed ?? 0) > 0 && response.metrics.model == "fixture-reported", "Real transport metrics missing")
                 try check(response.findings.count == 1 && response.replacementCode == nil, "HTTP review fixture failed")
                 network.model = "edit-fixture"
                 let responseEdit = try await client.review(request(mode: .edit), configuration: network, key: "test-ai-only")
@@ -171,6 +192,9 @@ private actor FixtureAIService: AIReviewService {
                 for model in ["truncated", "empty", "invalid-json", "malformed-envelope", "tool-call", "oversize"] {
                     network.model = model
                     do { _ = try await client.review(request(mode: .edit), configuration: network, key: "test-ai-only"); throw AICheckFailure(message: "Bad HTTP response accepted: " + model) }
+                    catch let measured as AIMeasuredFailure {
+                        try check(model == "malformed-envelope" ? measured.metrics.usage == nil : measured.metrics.usage?.total_tokens == 150, "Rejected result lost provider usage")
+                    }
                     catch is AIReviewError {}
                 }
                 network.model = "slow"

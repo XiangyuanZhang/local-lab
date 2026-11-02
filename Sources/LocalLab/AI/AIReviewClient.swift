@@ -53,6 +53,7 @@ final class AIReviewClient: AIReviewService, @unchecked Sendable {
         http.httpMethod = "POST"; http.setValue("application/json", forHTTPHeaderField: "Content-Type")
         http.setValue("Bearer " + key, forHTTPHeaderField: "Authorization")
         http.httpBody = try AIReviewPrompt.body(request, configuration: config)
+        let started = ProcessInfo.processInfo.systemUptime
         do {
             try Task.checkCancellation()
             let (bytes, response) = try await session.bytes(for: http)
@@ -66,8 +67,15 @@ final class AIReviewClient: AIReviewService, @unchecked Sendable {
                 data.append(byte)
             }
             try Task.checkCancellation()
-            return try Self.parse(data, request: request)
+            var metrics = AIRequestMetrics.decode(data)
+            metrics.elapsed = ProcessInfo.processInfo.systemUptime - started
+            do {
+                var value = try Self.parse(data, request: request)
+                value.metrics = metrics
+                return value
+            } catch let error as AIReviewError { throw AIMeasuredFailure(error: error, metrics: metrics) }
         } catch is CancellationError { throw CancellationError() }
+        catch let error as AIMeasuredFailure { throw error }
         catch let error as AIReviewError { throw error }
         catch let error as URLError {
             if error.code == .cancelled { throw CancellationError() }
@@ -109,7 +117,7 @@ final class AIReviewClient: AIReviewService, @unchecked Sendable {
             // The mode gate is enforced in parsing AND again at the apply boundary.
             let code = request.mode == .edit ? payload.replacement_code : nil
             if let code, code.utf8.count > 131_072 { throw AIReviewError.responseTooLarge }
-            return AIReviewResponse(summary: payload.summary, findings: findings, replacementCode: code)
+            return AIReviewResponse(summary: payload.summary, findings: findings, replacementCode: code, metrics: AIRequestMetrics.decode(data))
         } catch let error as AIReviewError { throw error }
         catch { throw AIReviewError.malformedResponse }
     }

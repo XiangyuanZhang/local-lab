@@ -1,6 +1,6 @@
 # AI code review / AI 審碼
 
-Version 1.1.0. Interface conventions: [design/motion.md](design/motion.md), Aurora palette, cardSurface, PressableStyle and Motion. New transitions respect Reduce Motion; no new idle timers or background model calls are introduced.
+Version 1.1.0. Interface conventions: [design/motion.md](design/motion.md), Aurora palette, cardSurface, PressableStyle and Motion. New transitions respect Reduce Motion; no AI polling or background model calls are introduced.
 
 ## Use
 
@@ -38,6 +38,14 @@ Only the explicitly selected file's filename/code, persona and current request a
 
 Limits: 128 KiB input code and replacement, 16 KiB per-request instruction and each persona, 20 personas, 100 findings, 2 MiB HTTP response. Preview shows at most 500 lines of one contiguous changed region with surrounding context; full before/after remains selectable. This bounds memory and avoids quadratic diff tables. Very large replacements may exceed model output tokens; truncated output is refused rather than partially applied.
 
+## Live status bar
+
+Time follows the local clock at minute boundaries. Battery/charging/AC changes use an IOKit power-source notification; network interface status uses NWPathMonitor, without probes or collecting SSIDs. A connected interface does not prove that the TUM server is reachable. Charging is labelled 充電中 with a bolt; AC attached while charging is paused is labelled 已接電. Missing battery readings are not fabricated.
+
+The API capsule stays on one row. Per-request tokens and launch-total tokens use provider `usage.total_tokens` (prompt + completion), with cached input included once. The reported model name is used after a result; changing configuration shows the new model for the next request. Average consumption speed is total tokens divided by monotonic end-to-end request duration, including network time. It updates on completion, not as a live streaming generation rate.
+
+The launch total is memory-only and resets when the App restarts. A malformed review with valid usage still counts the provider's reported tokens; cancelled/failed/missing-usage requests are unknown and are not estimated. `≥` marks the confirmed lower bound when any request has unknown consumption. Late cancelled results cannot be counted twice. This only covers requests made by this App instance, not the whole DeepSeek account or other apps. Narrow windows prioritize API information, then use a compact single row.
+
 ## Implementation
 
 - `AI/AIReviewModels.swift`: typed mode, personas, config, normalized endpoint scope, snapshot, result, bounded diff and errors.
@@ -53,4 +61,4 @@ Limits: 128 KiB input code and replacement, 16 KiB per-request instruction and e
 
 Native UI fixture: `./script/ui_smoke.sh` builds `.build/ui-smoke/Local Lab AI Test.app`. Run it only with loopback `LOCAL_LAB_UI_ENDPOINT` and an isolated `LOCAL_LAB_UI_ROOT`; it never restores the user's school connection or drafts. It is outside production Sources and is not shipped.
 
-See [verification-1.1.0.md](verification-1.1.0.md) for recorded results and limits. Synthetic fixture output is not evidence that a paid live DeepSeek request was made. No real key was available to this task; enter yours once in the installed App to use the actual service.
+See [verification-1.1.0.md](verification-1.1.0.md) for recorded results and limits. Synthetic fixture output is not evidence that a paid live DeepSeek request was made. The user subsequently supplied and authorized a real key; a single explicit live toy-code request was verified (see the verification record). Personal credentials remain outside the repository. `script/live_ai_check.sh --live` is an opt-in paid check; CI never runs it.

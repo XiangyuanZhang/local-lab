@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import UniformTypeIdentifiers
 
 struct PythonDocument: FileDocument {
@@ -16,22 +17,51 @@ struct ContentView: View {
     @State private var importing = false
     @State private var exporting = false
     @State private var appeared = false
-    @State private var measuredSidebarWidth: CGFloat = 280
+    @StateObject private var systemStatus = SystemStatusStore()
+    @State private var sidebarWidth: CGFloat = 280
+    @State private var sidebarDragStart: CGFloat?
     @AppStorage("editorFontSize") private var fontSize = 14.0
     @EnvironmentObject private var appearance: AppearanceStore
     @EnvironmentObject private var ai: AIReviewStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HSplitView {
-            if sidebarVisible {
-                SidebarView(store: store, background: background)
-                    .frame(minWidth: 180, idealWidth: 215, maxWidth: 280)
-                    .background { GeometryReader { proxy in
-                        Color.clear.preference(key: SidebarWidthPreference.self, value: proxy.size.width)
-                    } }
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-            }
+        HStack(spacing: 0) {
+            // Keep the native List at a stable width while revealing/clipping its column.
+            // Inserting/removing an NSSplitView child suppresses SwiftUI transitions.
+            SidebarView(store: store, background: background)
+                .cardSurface(radius: appearance.cardRadius, opacity: background.image == nil ? appearance.cardOpacity : 0)
+                .padding(.horizontal, 10)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
+                .frame(width: sidebarWidth)
+                .frame(width: sidebarVisible ? sidebarWidth : 0, alignment: .leading)
+                .clipped()
+                .opacity(sidebarVisible ? 1 : 0)
+                .allowsHitTesting(sidebarVisible)
+                .accessibilityHidden(!sidebarVisible)
+            Rectangle().fill(Color.primary.opacity(0.10))
+                .frame(width: sidebarVisible ? 1 : 0)
+                .overlay {
+                    Color.clear.frame(width: 8).contentShape(Rectangle())
+                        .onHover { inside in (inside ? NSCursor.resizeLeftRight : NSCursor.arrow).set() }
+                        .gesture(DragGesture().onChanged { value in
+                            if sidebarDragStart == nil { sidebarDragStart = sidebarWidth }
+                            sidebarWidth = min(280, max(180, (sidebarDragStart ?? sidebarWidth) + value.translation.width))
+                        }.onEnded { _ in sidebarDragStart = nil })
+                }
+                .opacity(sidebarVisible ? 1 : 0)
+                .allowsHitTesting(sidebarVisible)
+                .accessibilityLabel("側邊欄寬度")
+                .accessibilityValue("\(Int(sidebarWidth))")
+                .accessibilityAdjustableAction { direction in
+                    switch direction {
+                    case .increment: sidebarWidth = min(280, sidebarWidth + 10)
+                    case .decrement: sidebarWidth = max(180, sidebarWidth - 10)
+                    @unknown default: break
+                    }
+                }
+                .accessibilityHidden(!sidebarVisible)
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
                     if let error = store.error {
@@ -88,8 +118,15 @@ struct ContentView: View {
             .navigationSubtitle("Local Lab · TUM")
             .toolbar {
                 ToolbarItem(placement: .navigation) {
-                    Button { withAnimation(Motion.gentle) { sidebarVisible.toggle() } } label: { Label("侧边栏", systemImage: "sidebar.left") }
-                        .buttonStyle(PressableStyle())
+                    Button { withAnimation(reduceMotion ? nil : Motion.gentle) { sidebarVisible.toggle() } } label: {
+                        Image(systemName: "sidebar.left")
+                            .font(.system(size: 14, weight: .medium))
+                            .frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.automatic)
+                    .help(sidebarVisible ? "收起側邊欄" : "展開側邊欄")
+                    .accessibilityLabel("側邊欄")
+                    .accessibilityIdentifier("sidebar-toggle")
                 }
                 ToolbarItemGroup(placement: .primaryAction) {
                     if store.runningID != nil {
@@ -120,14 +157,14 @@ struct ContentView: View {
         .frame(minWidth: ai.panelVisible ? 1080 : 760, minHeight: 550)
         .overlay(alignment: .topLeading) {
             GeometryReader { geometry in
-                let leading = max(280, sidebarVisible ? measuredSidebarWidth + 1 : 0) + 10
+                let leading = max(280, sidebarVisible ? sidebarWidth + 1 : 0) + 10
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 8) {
-                        titlebarStatusPreview
-                        apiStatusPreview(compact: false)
+                        titlebarSystemStatus
+                        apiStatus(compact: false)
                     }.fixedSize()
-                    apiStatusPreview(compact: false).fixedSize()
-                    apiStatusPreview(compact: true).fixedSize()
+                    apiStatus(compact: false).fixedSize()
+                    apiStatus(compact: true).fixedSize()
                 }
                     .frame(width: max(0, geometry.size.width - leading - 210), alignment: .leading)
                     .frame(height: geometry.safeAreaInsets.top)
@@ -137,7 +174,6 @@ struct ContentView: View {
             }
             .allowsHitTesting(false)
         }
-        .onPreferenceChange(SidebarWidthPreference.self) { measuredSidebarWidth = $0 }
         .tint(Aurora.accent)
         .background(WorkspaceBackdrop(store: background).ignoresSafeArea())
         .environment(\.workspaceHasBackground, background.image != nil)
@@ -160,18 +196,26 @@ struct ContentView: View {
         .animation(Motion.entrance, value: appeared)
         .onAppear { appeared = true }
         .animation(Motion.gentle, value: store.error)
-        .animation(Motion.gentle, value: sidebarVisible)
+        .animation(reduceMotion ? nil : Motion.gentle, value: sidebarVisible)
     }
 
-    // Visual prototype only: no clock, battery observers or network polling.
-    private var titlebarStatusPreview: some View {
+    // Clock updates at minute boundaries; hardware/network changes are event-driven.
+    private var titlebarSystemStatus: some View {
         HStack(spacing: 12) {
-            Text("10:24").fontWeight(.semibold).monospacedDigit()
+            TimelineView(.everyMinute) { context in
+                Text(context.date.formatted(date: .omitted, time: .shortened))
+                    .fontWeight(.semibold).monospacedDigit()
+            }
             Rectangle().fill(Color.secondary.opacity(0.22)).frame(width: 1, height: 12)
-            Image(systemName: "wifi")
+            Image(systemName: systemStatus.network.symbol)
+                .accessibilityLabel(systemStatus.network.description)
             HStack(spacing: 5) {
-                Text("78%").monospacedDigit()
-                Image(systemName: "battery.75percent")
+                Text(systemStatus.battery.text).monospacedDigit()
+                Image(systemName: systemStatus.battery.symbol)
+                if let state = systemStatus.battery.stateLabel {
+                    Text(state).font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(systemStatus.battery.charging ? Aurora.mint : Color.secondary)
+                }
             }
         }
         .font(.system(size: 12))
@@ -182,19 +226,19 @@ struct ContentView: View {
             Capsule().fill(.ultraThinMaterial)
                 .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 0.7))
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("狀態欄外觀預覽：10:24，Wi-Fi，電量 78%。示例資料。")
+        .accessibilityElement(children: .combine)
+        .help(systemStatus.network.description + "；" + (systemStatus.battery.charging ? "正在充電" : systemStatus.battery.onACPower ? "外接電源" : "使用電池") + "。網路圖示不代表學校伺服器連線狀態。")
     }
 
-    private func apiStatusPreview(compact: Bool) -> some View {
+    private func apiStatus(compact: Bool) -> some View {
         HStack(spacing: compact ? 6 : 10) {
             HStack(spacing: 5) {
                 if !compact { Image(systemName: "cpu") }
-                Text("deepseek-flash").fontWeight(.medium)
+                Text(ai.statusModel).lineLimit(1).truncationMode(.middle).frame(maxWidth: compact ? 90 : 140).fontWeight(.medium)
             }.foregroundStyle(Aurora.accent)
             Rectangle().fill(Color.secondary.opacity(0.22)).frame(width: 1, height: 14)
-            Text(compact ? "1.2k / 8.6k" : "單次 1.2k · 啟動 8.6k").monospacedDigit()
-            Text(compact ? "42/s" : "42 tok/s").monospacedDigit()
+            Text(compact ? "\(ai.isRunning ? "…" : ai.usage.lastText) / \(ai.usage.totalText)" : "單次 \(ai.isRunning ? "…" : ai.usage.lastText) · 啟動 \(ai.usage.totalText)").monospacedDigit()
+            Text(ai.isRunning ? "… tok/s" : ai.usage.speedText).monospacedDigit()
         }
         .font(.system(size: compact ? 10 : 11))
         .foregroundStyle(.secondary)
@@ -205,7 +249,8 @@ struct ContentView: View {
                 .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 0.7))
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("API 外觀預覽：模型 deepseek-flash，單次 1200 tokens，本次啟動 8600 tokens，速度每秒 42 tokens。示例資料。")
+        .accessibilityLabel("API：模型 \(ai.statusModel)，單次 \(ai.usage.lastText) tokens，本次啟動 \(ai.usage.totalText) tokens，平均消耗速度 \(ai.usage.speedText)。")
+        .help("單次與啟動總量採用 API 回傳的輸入＋輸出 token；速度為總 token ÷ 請求耗時（含網路），完成後更新。≥ 表示有請求未回傳用量，總數只含已確認部分；重新啟動 App 歸零。")
     }
 
     private var statusPhase: StatusOrb.Phase {
@@ -376,9 +421,4 @@ struct EditorPane: View {
     private var sourceEditor: some View {
         CodeEditor(text: Binding(get: { store.selected?.code ?? "" }, set: { store.updateCode($0) }), fontSize: fontSize, python: store.selected?.name.lowercased().hasSuffix(".py") == true)
     }
-}
-
-private struct SidebarWidthPreference: PreferenceKey {
-    static var defaultValue: CGFloat = 280
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }

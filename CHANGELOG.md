@@ -2,6 +2,9 @@
 
 ## 1.1.0 — 2026-11-02
 
+- Live titlebar clock, battery/charging/network state and single-row API model/token/average-rate metrics; launch accounting handles unknown/cancelled usage.
+- Rounded sidebar and header rows, native-sized toggle, smooth retained-list transitions, and viewport-tracking code editor.
+
 - Add DeepSeek-compatible AI code review with persistent editable persona presets, optional per-request instructions and separate review-only/edit modes.
 - Store endpoint-scoped API credentials in a private local directory, without repeated Keychain prompts or embedding keys in the app.
 - Preview proposed changes before applying; reject stale/changed documents and offer guarded undo. Applying never automatically executes code or saves to the remote server.

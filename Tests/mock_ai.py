@@ -60,7 +60,7 @@ class Handler(BaseHTTPRequestHandler):
         if model == "invalid-json": content = "```json\nnot-json\n```"
         if model == "malformed-envelope": self.reply(200, {"choices": []}); return
         reason = "length" if model == "truncated" else "tool_calls" if model == "tool-call" else "stop"
-        self.reply(200, {"choices": [{"finish_reason": reason, "message": {"content": content}}]})
+        self.reply(200, {"model": "fixture-reported", "usage": {"prompt_tokens": 120, "completion_tokens": 30, "total_tokens": 150}, "choices": [{"finish_reason": reason, "message": {"content": content}}]})
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(); parser.add_argument("--port", type=int, default=0); parser.add_argument("--ready")
