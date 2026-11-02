@@ -8,7 +8,8 @@ struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             List(selection: $store.selection) {
-                Section("JupyterLab") {
+                Section {
+
                     Label("遠端檔案", systemImage: "folder").tag(WorkspaceStore.remoteBrowserID)
                     ForEach(store.remoteTreeRoots) { entry in RemoteSidebarRow(store: store, entry: entry) }
                     ForEach(store.uncataloguedRemoteDrafts) { draft in
@@ -17,16 +18,17 @@ struct SidebarView: View {
                             if draft.isRemoteDirty { DirtyDot() }
                         }.tag(draft.id)
                     }
-                }
-                Section("本機草稿") {
+                } header: { sectionHeader("JUPYTERLAB") }
+                Section {
                     ForEach(store.drafts.filter { $0.remotePath == nil }) { draft in
                         Label(draft.name, systemImage: "doc.text").tag(draft.id)
                     }
-                }
+                } header: { sectionHeader("本機草稿") }
             }
             .listStyle(.inset)
+            .environment(\.defaultMinListRowHeight, 24)
             .tint(Aurora.accent)
-            .padding(.top, 8)
+            .padding(.top, 4)
             .scrollContentBackground(.hidden)
             .padding(.horizontal, 6)
 
@@ -40,6 +42,15 @@ struct SidebarView: View {
                 .frame(width: 0.5)
                 .ignoresSafeArea()
         }
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(0.9)
+            .foregroundStyle(.secondary)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
     }
 
     /// With a user background image the sidebar is dimmed by the per-region
@@ -84,7 +95,11 @@ struct SidebarView: View {
             HStack(spacing: 8) {
                 Label("TUM Python", systemImage: "server.rack").font(.callout.weight(.medium))
                 Spacer()
-                PulseDot(active: store.isReady, tint: store.isReady ? Aurora.mint : Color.secondary.opacity(0.6), size: 6)
+                PulseDot(
+                    active: store.connecting || store.runningID != nil,
+                    tint: store.isReady ? Aurora.mint : Color.secondary.opacity(0.6),
+                    size: 6
+                )
             }
             Text("go97lep · lecture.cs.tum.de")
                 .font(.caption)

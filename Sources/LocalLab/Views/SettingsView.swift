@@ -124,6 +124,7 @@ struct SettingsView: View {
 struct AppearancePreview: View {
     @EnvironmentObject private var appearance: AppearanceStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.controlActiveState) private var activeState
     @State private var tab = 0
     @Namespace private var pill
 
@@ -141,7 +142,7 @@ struct AppearancePreview: View {
                     Image(systemName: "sparkles").foregroundStyle(appearance.effectiveAccent)
                     Text("預覽").font(.headline)
                     Spacer()
-                    Aurora.Chip(text: "執行中", systemImage: "waveform", kind: .coral, animated: true)
+                    Aurora.Chip(text: "執行中", systemImage: "waveform", kind: .coral)
                     StatusOrb(phase: .ready, tint: Aurora.mint, size: 7)
                 }
                 HStack(spacing: 6) {
@@ -172,12 +173,12 @@ struct AppearancePreview: View {
             .padding(16)
         }
         .frame(height: 170)
-        .animation(Motion.gentle, value: tab)
         .task {
             guard !reduceMotion else { return }
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 2_600_000_000)
                 guard !Task.isCancelled else { break }
+                guard activeState == .key else { continue }
                 withAnimation(Motion.snappy) { tab = (tab + 1) % labels.count }
             }
         }

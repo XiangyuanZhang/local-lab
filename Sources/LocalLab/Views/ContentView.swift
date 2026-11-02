@@ -154,7 +154,8 @@ struct ContentView: View {
             } else if let notice = store.syncNotice {
                 Text(notice).foregroundStyle(.secondary).lineLimit(1).popOnChange(of: notice)
             } else if let date = store.lastSynced {
-                Text("已同步 \(date.formatted(date: .omitted, time: .shortened))").foregroundStyle(.secondary)
+                Text("已同步 \(date.formatted(date: .omitted, time: .shortened))")
+                    .monospacedDigit().foregroundStyle(.secondary)
             } else {
                 Text("⌘ Return 執行").foregroundStyle(.secondary)
             }
@@ -201,9 +202,18 @@ struct EditorPane: View {
     private var isMarkdown: Bool { ["md", "markdown"].contains((store.selected?.name as NSString?)?.pathExtension.lowercased() ?? "") }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Label(isMarkdown ? "文件" : "程式", systemImage: isMarkdown ? "doc.richtext" : "chevron.left.forwardslash.chevron.right")
-                    .font(.headline)
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Aurora.accent.opacity(0.14))
+                    Image(systemName: isMarkdown ? "doc.richtext" : "chevron.left.forwardslash.chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Aurora.accent)
+                }
+                .frame(width: 24, height: 24)
+                Text(store.selected?.name ?? "未開啟檔案")
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
                 Spacer()
                 if isMarkdown { markdownControl }
                 Aurora.Chip(text: languageLabel, kind: .brand)
@@ -211,9 +221,9 @@ struct EditorPane: View {
                     .popOnChange(of: syncLabel)
             }
             .font(.caption)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-            Divider().opacity(0.5)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            hairline
             if let id = store.selection, store.conflicts[id] != nil {
                 HStack(alignment: .top) {
                     Label("遠端也已修改。已保留你的本機內容。", systemImage: "exclamationmark.triangle").font(.callout)
@@ -245,6 +255,16 @@ struct EditorPane: View {
         }
         .animation(Motion.gentle, value: markdownMode)
         .animation(Motion.gentle, value: store.conflicts.count)
+    }
+
+    /// Soft hairline instead of a flat Divider, so the glass cards blend.
+    private var hairline: some View {
+        LinearGradient(
+            colors: [.clear, Color.primary.opacity(0.12), .clear],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+        .frame(height: 0.8)
     }
 
     private var languageLabel: String {

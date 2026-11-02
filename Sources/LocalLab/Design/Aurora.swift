@@ -148,7 +148,10 @@ enum Aurora {
         var animated: Bool = false
 
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        @Environment(\.controlActiveState) private var activeState
         @State private var dimmed = false
+
+        private var breathing: Bool { animated && !reduceMotion && activeState == .key }
 
         private var tint: Color {
             switch kind {
@@ -164,8 +167,8 @@ enum Aurora {
                 if let systemImage {
                     Image(systemName: systemImage)
                         .font(.system(size: 10, weight: .semibold))
-                        .opacity(animated && dimmed ? 0.4 : 1)
-                        .animation(animated && !reduceMotion
+                        .opacity(breathing && dimmed ? 0.4 : 1)
+                        .animation(breathing
                                    ? .easeInOut(duration: 0.85).repeatForever(autoreverses: true)
                                    : nil,
                                    value: dimmed)
@@ -178,8 +181,9 @@ enum Aurora {
             .padding(.vertical, 4)
             .background(Capsule(style: .continuous).fill(tint.opacity(0.14)))
             .overlay(Capsule(style: .continuous).strokeBorder(tint.opacity(0.22), lineWidth: 0.6))
-            .onAppear { dimmed = animated }
-            .onChange(of: animated) { _, on in dimmed = on }
+            .onAppear { dimmed = breathing }
+            .onChange(of: animated) { _, _ in dimmed = breathing }
+            .onChange(of: activeState) { _, _ in dimmed = breathing }
         }
     }
 }
@@ -237,11 +241,14 @@ struct PulseDot: View {
     var tint: Color
     var size: CGFloat = 7
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.controlActiveState) private var activeState
     @State private var pulsing = false
+
+    private var running: Bool { active && !reduceMotion && activeState == .key }
 
     var body: some View {
         ZStack {
-            if active && !reduceMotion {
+            if running {
                 Circle()
                     .fill(tint.opacity(0.35))
                     .frame(width: size * 2.1, height: size * 2.1)
@@ -251,16 +258,17 @@ struct PulseDot: View {
             Circle()
                 .fill(tint)
                 .frame(width: size, height: size)
-                .shadow(color: tint.opacity(active ? 0.55 : 0), radius: active ? 4 : 0)
+                .shadow(color: tint.opacity(active ? 0.55 : 0.35), radius: active ? 4 : 3)
         }
         .frame(width: size * 2.1, height: size * 2.1)
         .onAppear { start() }
         .onChange(of: active) { _, _ in start() }
+        .onChange(of: activeState) { _, _ in start() }
         .accessibilityHidden(true)
     }
 
     private func start() {
-        guard active, !reduceMotion else { pulsing = false; return }
+        guard running else { pulsing = false; return }
         pulsing = false
         withAnimation(.easeOut(duration: 1.8).repeatForever(autoreverses: false)) { pulsing = true }
     }
@@ -379,24 +387,30 @@ struct StatusOrb: View {
     var size: CGFloat = 8
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.controlActiveState) private var activeState
     @State private var spinning = false
+
+    private var canSpin: Bool { phase == .connecting && !reduceMotion && activeState == .key }
 
     var body: some View {
         ZStack {
-            if phase == .connecting {
+            if canSpin {
                 Circle()
                     .trim(from: 0, to: 0.32)
                     .stroke(tint.opacity(0.85), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
                     .frame(width: size * 1.9, height: size * 1.9)
                     .rotationEffect(.degrees(spinning ? 360 : 0))
-                    .animation(reduceMotion ? nil : .linear(duration: 1.1).repeatForever(autoreverses: false),
+                    .animation(.linear(duration: 1.1).repeatForever(autoreverses: false),
                                value: spinning)
             }
-            PulseDot(active: phase == .ready, tint: tint, size: size)
+            // A steady dot reads as "connected"; breathing is reserved for
+            // states that are actually waiting on something.
+            PulseDot(active: false, tint: tint, size: size)
         }
         .frame(width: size * 2.2, height: size * 2.2)
-        .onAppear { spinning = phase == .connecting }
-        .onChange(of: phase) { _, new in spinning = new == .connecting }
+        .onAppear { spinning = canSpin }
+        .onChange(of: phase) { _, _ in spinning = canSpin }
+        .onChange(of: activeState) { _, _ in spinning = canSpin }
         .accessibilityHidden(true)
     }
 }
