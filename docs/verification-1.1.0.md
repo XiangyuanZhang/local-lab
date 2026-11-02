@@ -16,7 +16,10 @@
 
 ## Publication gates
 
-Final release compile/signature, restart/reuse UI confirmation, GitHub CI result and tag/asset validation are completed before publishing. Their authoritative URLs and local observation details will be recorded here after completion.
+- Optimized release compilation and strict deep signature validation passed after the final inspector layout fix. Packaging verified bundle version 1.1.0 / build 4, clean committed source, ZIP integrity, and absence of credential resources.
+- Restart/reuse and stale-source UI checks are recorded above. The final restored layout was compiled, relaunched and visually checked.
+- CI evidence is attached to [PR #1](https://github.com/XiangyuanZhang/local-lab/pull/1); release publication requires its final checks to pass. The initial full feature check passed in [run 41504061863](https://github.com/XiangyuanZhang/local-lab/actions/runs/41504061863).
+- The published [v1.1.0 release](https://github.com/XiangyuanZhang/local-lab/releases/tag/v1.1.0) supplies the authoritative source commit and artifact SHA-256 through release-manifest.json and SHA256SUMS. Uploaded asset digests are compared before delivery.
 
 ## Scope limits
 
