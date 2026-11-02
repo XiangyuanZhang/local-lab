@@ -38,8 +38,8 @@ struct BackgroundEditor: View {
             }.frame(width: viewport.width, height: viewport.height).clipped()
                 .overlay {
                     HStack(spacing: 0) {
-                        Color(nsColor: .windowBackgroundColor).opacity(sidebarTransparency).frame(width: viewport.width * 0.2)
-                        Color(nsColor: .windowBackgroundColor).opacity(transparency)
+                        Aurora.scrim.opacity(1 - sidebarTransparency).frame(width: viewport.width * 0.2)
+                        Aurora.scrim.opacity(1 - transparency)
                     }.allowsHitTesting(false)
                 }.overlay(Rectangle().stroke(.secondary, lineWidth: 1))
                 .frame(maxWidth: .infinity).accessibilityLabel("背景裁剪预览")

@@ -23,8 +23,8 @@ struct ContentView: View {
     var body: some View {
         HSplitView {
             if sidebarVisible {
-                SidebarView(store: store).frame(minWidth: 180, idealWidth: 215, maxWidth: 280)
-                    .background(regionOverlay(sidebar: true))
+                SidebarView(store: store, background: background)
+                    .frame(minWidth: 180, idealWidth: 215, maxWidth: 280)
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
             VStack(spacing: 0) {
@@ -68,7 +68,7 @@ struct ContentView: View {
                 }
                 statusBar
             }
-            .background(regionOverlay(sidebar: false))
+            .background(regionOverlay)
             .navigationTitle(store.browsingRemote ? "遠端檔案" : store.selected?.name ?? "Python 工作區")
             .navigationSubtitle("Local Lab · TUM")
             .toolbar {
@@ -183,11 +183,10 @@ struct ContentView: View {
         }
     }
 
-    private func regionOverlay(sidebar: Bool) -> some View {
-        let settings = background.configuration
-        let transparency = sidebar ? (settings?.sidebarTransparency ?? settings?.transparency ?? 0) : (settings?.transparency ?? 0)
-        return Color(nsColor: .windowBackgroundColor)
-            .opacity(background.image == nil ? 0 : transparency)
+    private var regionOverlay: some View {
+        let transparency = background.configuration?.transparency ?? 0
+        return Aurora.scrim
+            .opacity(background.image == nil ? 0 : 1 - transparency)
             .ignoresSafeArea(edges: .top)
             .allowsHitTesting(false)
     }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SidebarView: View {
     @ObservedObject var store: WorkspaceStore
+    @ObservedObject var background: BackgroundStore
     @EnvironmentObject private var appearance: AppearanceStore
 
     var body: some View {
@@ -32,12 +33,25 @@ struct SidebarView: View {
             newDraftButton
             footer
         }
-        .background(PanelBackdrop(finish: appearance.panel))
+        .background(sidebarBackdrop)
         .overlay(alignment: .trailing) {
             Rectangle()
                 .fill(Color.white.opacity(0.22))
                 .frame(width: 0.5)
                 .ignoresSafeArea()
+        }
+    }
+
+    /// With a user background image the sidebar is dimmed by the per-region
+    /// transparency value from the background settings (same maths as the editor
+    /// preview). Without an image the aurora panel material is used instead.
+    @ViewBuilder
+    private var sidebarBackdrop: some View {
+        if background.image != nil, let settings = background.configuration {
+            Aurora.scrim
+                .opacity(1 - (settings.sidebarTransparency ?? settings.transparency))
+        } else {
+            PanelBackdrop(finish: appearance.panel)
         }
     }
 

@@ -33,6 +33,11 @@ enum Aurora {
     static let blush = color(light: 0xF190A0, dark: 0x5A2A36)
     static let cream = color(light: 0xF2E68C, dark: 0x3A3520)
 
+    /// Opaque scrim for dimming a background photo behind panels. AppKit's
+    /// semantic windowBackgroundColor loses its opacity inside a windows whose
+    /// backdrop is the photo, so the scrim is spelled out explicitly.
+    static let scrim = color(light: 0xEDEDED, dark: 0x1E1E20)
+
     /// Brand accent used for selection, focus and primary actions.
     static let brand = color(light: 0xA090F1, dark: 0xB4A6FF)
     /// Warm accent: running state, live recording, attention.
