@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var appeared = false
     @AppStorage("editorFontSize") private var fontSize = 14.0
     @EnvironmentObject private var appearance: AppearanceStore
+    @EnvironmentObject private var ai: AIReviewStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -83,6 +84,8 @@ struct ContentView: View {
                     if store.selected?.remotePath != nil {
                         Button { Task { await store.saveSelectedRemote() } } label: { Label("儲存至遠端", systemImage: "icloud.and.arrow.up") }.disabled(!store.isReady || store.fileBusy || store.selected?.isRemoteDirty != true)
                     }
+                    Button { withAnimation(reduceMotion ? nil : Motion.gentle) { ai.panelVisible.toggle() } } label: { Label("AI 審碼", systemImage: "sparkles") }
+                        .help("AI 審碼（⇧⌘R）").accessibilityIdentifier("ai-toolbar")
                     Button { store.run() } label: { Label("執行", systemImage: "play.fill") }.disabled(!store.canRun).help("執行目前草稿（⌘ Return）")
                     Button { store.showConnection = true } label: { Label(store.isReady ? "連線資訊" : "連線", systemImage: "network") }.disabled(store.busy || store.runningID != nil)
                     Menu {
@@ -98,8 +101,15 @@ struct ContentView: View {
                     } label: { Image(systemName: "ellipsis") }.help("工作區操作")
                 }
             }
+            if ai.panelVisible {
+                AIReviewPane(store: ai, workspace: store)
+                    .frame(minWidth: 320, idealWidth: 370, maxWidth: 540)
+                    .cardSurface(radius: appearance.cardRadius, opacity: appearance.cardOpacity)
+                    .padding(.vertical, 10).padding(.trailing, 10)
+                    .transition(.opacity)
+            }
         }
-        .frame(minWidth: 760, minHeight: 550)
+        .frame(minWidth: ai.panelVisible ? 1080 : 760, minHeight: 550)
         .tint(Aurora.accent)
         .background(WorkspaceBackdrop(store: background).ignoresSafeArea())
         .environment(\.workspaceHasBackground, background.image != nil)

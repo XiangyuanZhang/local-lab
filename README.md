@@ -1,4 +1,4 @@
-> Current release: **1.0.2** (2026-11-02), versioned by `VERSION`. Historical sections below describe earlier builds. See [CHANGELOG.md](CHANGELOG.md) and [docs/version-management.md](docs/version-management.md) for the current artifact and backup policy.
+> Current release: **1.1.0** (build 4). `VERSION` and `BUILD_NUMBER` are authoritative. See [CHANGELOG.md](CHANGELOG.md), [AI review guide](docs/ai-review.md) and [release conventions](docs/version-management.md). Historical test reports describe the build/date stated in each report.
 
 # Local Lab
 
@@ -16,6 +16,19 @@
 - `script/` — 建置、簽署、測試腳本
 - `Resources/` — 圖示、Markdown 渲染器與打包的 CPython 3.10.12
 - `docs/` — 專案說明、測試報告、事故檢查與版本清單；`docs/design/` 收錄視覺與動效規範
+
+## AI 審碼（1.1.0）
+
+工具列「AI 審碼」或 ⇧⌘R 開啟右側面板，保持原有編輯器與下方 terminal 佈局。AI 不需要先連線到學校伺服器。
+
+1. 開啟「AI 設定」，填寫 DeepSeek API Key，儲存一次。預設根網址 `https://api.deepseek.com`、模型 `deepseek-flash`；可改模型及兼容接口。
+2. 選擇／編輯人格預設（嚴謹審閱者、耐心導師、最小修改工程師），或新增自己的提示詞。人格會自動加入每次請求。
+3. 「僅審碼」只顯示問題；「審碼並修改」會生成完整建議內容，經預覽和明確套用後才改編輯器。可還原上次套用，但不覆蓋後續人工編輯。
+4. 每次只發送目前檔案、選定人格和本次要求。不自動上傳遠端、執行程式、讀取其他檔案或在背景呼叫 AI。
+
+Key 與設定分開存在 `~/Library/Application Support/LocalLab/AIReview/`，目錄權限 0700、檔案 0600；不用反覆輸入或批准鑰匙圈。不同 API 根網址有獨立 Key。審碼內容及結果只在記憶體中保留，套用程式碼仍使用原本草稿保存流程。這是本機私有檔案儲存，不宣稱額外加密。
+
+AI 修改會比對送審時的檔案身分和內容，檔案切換、內容變更、執行或同步中會拒絕套用。AI 回應仍需人工判斷；程式碼與補充要求有單次大小上限。完整行為、測試與資料範圍見 [docs/ai-review.md](docs/ai-review.md)。
 
 ## 使用
 
@@ -79,6 +92,9 @@ Markdown（.md / .markdown）預設使用本機閱讀預覽，可切換「編輯
 原生 App 已在真實 TUM 服務執行 Hello 範例，收到 `Hello from local API` 與 `Total: 20`，核對 execute_reply/idle 後顯示執行完成（0.38 秒）；測試專用核心正常關閉。真實 TUM 服務已完成隔離資料夾、檔案建立／修改／讀回／刪除、Python 執行、stdout／stderr／PNG，以及 terminal WebSocket 互動輸入輸出測試。原生介面另驗證 Markdown 渲染／編輯／保存、側邊欄切換、Python 輸出顯示與刪除後本機副本保留。詳見 `docs/test-report-2026-10-13.md`。
 
 ## 開發
+
+目前工作副本可放於任意本機資料夾；本次使用 `/Users/edwardwilson/Documents/Codex/local-lab`。生成物集中到被 Git 忽略的 `dist/` 與 `.build/`，不再混入原工作區的 outputs。`./script/test_ai.sh` 會自動建立與關閉 loopback 模擬服務；不需要真實 API Key。`python3 script/package_release.py` 只接受乾淨的已提交源码，輸出 `dist/<version>/` 的 ZIP、manifest 與 SHA256SUMS。
+
 
 本機 Apple Silicon 版本，macOS 14+。使用 SwiftPM，使用者不需安裝 Python、Node.js 或其他執行環境；Markdown 解析器 Marked 18.1.1 與 DOMPurify 3.4.17 已打包於 App，附授權文件。
 

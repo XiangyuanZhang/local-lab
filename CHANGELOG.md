@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 — 2026-11-02
+
+- Add DeepSeek-compatible AI code review with persistent editable persona presets, optional per-request instructions and separate review-only/edit modes.
+- Store endpoint-scoped API credentials in a private local directory, without repeated Keychain prompts or embedding keys in the app.
+- Preview proposed changes before applying; reject stale/changed documents and offer guarded undo. Applying never automatically executes code or saves to the remote server.
+- Reuse Aurora cards, accents and existing motion conventions; no background AI polling.
+- Add native checks, real URLSession loopback integration tests and an isolated native UI fixture.
+- Standardize feature branches, PR checks, VERSION/BUILD_NUMBER, dist outputs and reproducible credential-free release packaging.
+
 ## 1.0.2 — 2026-11-02
 
 Consolidates the UI, appearance, background transparency, idle motion, and credential-flow changes already committed through d10dddb. No new application behavior is introduced here beyond release versioning and excluding the personal built-in token from release bundles.

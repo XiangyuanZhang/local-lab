@@ -8,9 +8,9 @@ cd "$ROOT_DIR"
 APP_NAME=LocalLab
 BUNDLE_ID=local.edward.LocalLab
 VERSION="$(cat "$ROOT_DIR/VERSION")"
-BUILD_NUMBER=3
-APP_BUNDLE="$ROOT_DIR/../Local Lab.app"
-if [[ "$MODE" == "--release" ]]; then APP_BUNDLE="$ROOT_DIR/../releases/$VERSION/Local Lab.app"; fi
+BUILD_NUMBER="$(cat "$ROOT_DIR/BUILD_NUMBER")"
+APP_BUNDLE="$ROOT_DIR/dist/debug/Local Lab.app"
+if [[ "$MODE" == "--release" ]]; then APP_BUNDLE="$ROOT_DIR/dist/release/Local Lab.app"; fi
 # Do not force-kill a running session; the app owns remote resources.
 if pgrep -x "$APP_NAME" >/dev/null; then
   echo 'Local Lab is running. Quit it normally before rebuilding so its remote kernel can be cleaned up.' >&2
@@ -23,9 +23,8 @@ cp "$BUILD_BINARY" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 xcrun clang -O2 -Wall -Wextra "$ROOT_DIR/Support/ShellBridge.c" -o "$ROOT_DIR/.build/LocalLabShellBridge"
 cp "$ROOT_DIR/.build/LocalLabShellBridge" "$APP_BUNDLE/Contents/MacOS/LocalLabShellBridge"
 # Release artifacts must not carry the personal credential.
-for resource in "$ROOT_DIR/Resources/"*; do
-  [[ "$(basename "$resource")" == "builtin-token.txt" ]] && continue
-  cp "$resource" "$APP_BUNDLE/Contents/Resources/"
+for name in AppIcon.png AppIcon.icns marked.js purify.js markdown.css marked-LICENSE DOMPurify-LICENSE python-3.10.12.tar.gz; do
+  cp "$ROOT_DIR/Resources/$name" "$APP_BUNDLE/Contents/Resources/$name"
 done
 rm -f "$APP_BUNDLE/Contents/Resources/builtin-token.txt"
 if [[ "$MODE" != "--release" && -f "$ROOT_DIR/Resources/builtin-token.txt" ]]; then

@@ -1,3 +1,12 @@
+# Current documentation
+
+- [AI review setup and behavior](ai-review.md)
+- [1.1.0 verification](verification-1.1.0.md)
+- [Version and release conventions](version-management.md)
+- [Existing UI and motion rules](design/motion.md)
+
+The sections below index historical reports, which describe their stated dates/builds.
+
 # 文件索引
 
 本目錄收錄 Local Lab 的專案說明、測試證據與事故檢查。程式碼與建置方式見根目錄 [README](../README.md)。

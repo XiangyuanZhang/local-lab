@@ -4,6 +4,8 @@ import AppKit
 struct SettingsView: View {
     @ObservedObject var store: WorkspaceStore
     @EnvironmentObject private var appearance: AppearanceStore
+    @EnvironmentObject private var ai: AIReviewStore
+    @State private var showAISettings = false
     @AppStorage("autoConnect") private var autoConnect = true
     @AppStorage("localPythonExecutable") private var python = ""
     @AppStorage("localWorkspace") private var workspace = ""
@@ -48,6 +50,15 @@ struct SettingsView: View {
                     Button("恢復預設外觀") { withAnimation(Motion.snappy) { appearance.reset() } }
                 }
             }
+            Section("AI 審碼") {
+                HStack {
+                    Text(ai.configuration.model).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("API 與人格設定…") { showAISettings = true }
+                }
+                Text(ai.hasSavedKey ? "API Key 已保存在本機，下次不用重複輸入。" : "預設使用 DeepSeek；設定接口與 Key 後即可開始審碼。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("背景") {
                 Button("更换背景…") { store.showBackgroundEditor = true }
                 Text("未設定背景圖片時顯示極光背景；設定圖片後以圖片為底，可調整裁剪、比例、模糊與透明度。")
@@ -81,6 +92,7 @@ struct SettingsView: View {
         .tint(appearance.effectiveAccent)
         .padding()
         .frame(width: 540, height: 720)
+        .sheet(isPresented: $showAISettings) { AISettingsView(store: ai) }
     }
 
     private var accentRow: some View {
