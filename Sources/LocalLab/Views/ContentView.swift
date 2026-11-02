@@ -99,6 +99,7 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 760, minHeight: 550)
+        .tint(Aurora.brand)
         .background(WorkspaceBackdrop(store: background).ignoresSafeArea())
         .environment(\.workspaceHasBackground, background.image != nil)
         .toolbarBackground(.hidden, for: .windowToolbar)
