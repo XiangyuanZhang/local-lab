@@ -2,6 +2,8 @@ import SwiftUI
 
 struct BottomPanelView: View {
     @ObservedObject var store: WorkspaceStore
+    var scrimOpacity: Double = 0
+    @Environment(\.workspaceHasBackground) private var hasBackground
     @EnvironmentObject private var appearance: AppearanceStore
     @Namespace private var pill
 
@@ -53,6 +55,7 @@ struct BottomPanelView: View {
             .transition(.opacity)
             .animation(Motion.quick, value: store.bottomPanel)
         }
-        .cardSurface(radius: appearance.cardRadius, opacity: appearance.cardOpacity)
+        .background(Aurora.scrim.opacity(hasBackground ? scrimOpacity : 0))
+        .cardSurface(radius: appearance.cardRadius, opacity: hasBackground ? 0 : appearance.cardOpacity)
     }
 }

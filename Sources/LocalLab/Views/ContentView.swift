@@ -20,6 +20,7 @@ struct ContentView: View {
     @StateObject private var systemStatus = SystemStatusStore()
     @State private var sidebarWidth: CGFloat = 280
     @State private var sidebarDragStart: CGFloat?
+    @State private var titlebarInset: CGFloat = 52
     @AppStorage("editorFontSize") private var fontSize = 14.0
     @EnvironmentObject private var appearance: AppearanceStore
     @EnvironmentObject private var ai: AIReviewStore
@@ -95,20 +96,21 @@ struct ContentView: View {
                             else { EditorPane(store: store, fontSize: fontSize) }
                         }
                         .frame(minHeight: 230)
-                        .cardSurface(radius: appearance.cardRadius, opacity: appearance.cardOpacity)
+                        .background(regionOverlay)
+                        .cardSurface(radius: appearance.cardRadius, opacity: background.image == nil ? appearance.cardOpacity : 0)
                         .padding(.horizontal, 10)
                         .padding(.top, 10)
-                        BottomPanelView(store: store).frame(minHeight: 180, idealHeight: 260)
+                        BottomPanelView(store: store, scrimOpacity: 1 - (background.configuration?.transparency ?? 0)).frame(minHeight: 180, idealHeight: 260)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 8)
                     }
                     statusBar
                 }
-                .background(regionOverlay)
                 if ai.panelVisible {
                     AIReviewPane(store: ai, workspace: store)
                         .frame(width: 360)
-                        .cardSurface(radius: appearance.cardRadius, opacity: appearance.cardOpacity)
+                        .background(regionOverlay)
+                        .cardSurface(radius: appearance.cardRadius, opacity: background.image == nil ? appearance.cardOpacity : 0)
                         .padding(.vertical, 10).padding(.trailing, 10)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
@@ -167,15 +169,16 @@ struct ContentView: View {
                     apiStatus(compact: true).fixedSize()
                 }
                     .frame(width: max(0, geometry.size.width - leading - 210), alignment: .leading)
-                    .frame(height: geometry.safeAreaInsets.top)
+                    .frame(height: max(geometry.safeAreaInsets.top, titlebarInset))
                     .clipped()
                     .padding(.leading, leading)
-                    .offset(y: -geometry.safeAreaInsets.top)
+                    .offset(y: -max(geometry.safeAreaInsets.top, titlebarInset))
             }
             .allowsHitTesting(false)
         }
         .tint(Aurora.accent)
         .background(WorkspaceBackdrop(store: background).ignoresSafeArea())
+        .background(WorkspaceWindowChrome(inset: $titlebarInset))
         .environment(\.workspaceHasBackground, background.image != nil)
         .toolbarBackground(.hidden, for: .windowToolbar)
         .sheet(isPresented: $store.showBackgroundEditor) { BackgroundEditor(store: background) }
@@ -316,7 +319,6 @@ struct ContentView: View {
         let transparency = background.configuration?.transparency ?? 0
         return Aurora.scrim
             .opacity(background.image == nil ? 0 : 1 - transparency)
-            .ignoresSafeArea(edges: .top)
             .allowsHitTesting(false)
     }
 }

@@ -1,4 +1,4 @@
-> Current release: **1.1.0** (build 4). `VERSION` and `BUILD_NUMBER` are authoritative. See [CHANGELOG.md](CHANGELOG.md), [AI review guide](docs/ai-review.md) and [release conventions](docs/version-management.md). Historical test reports describe the build/date stated in each report.
+> Current release: **1.1.1** (build 5). `VERSION` and `BUILD_NUMBER` are authoritative. See [CHANGELOG.md](CHANGELOG.md), [AI review guide](docs/ai-review.md) and [release conventions](docs/version-management.md). Historical test reports describe the build/date stated in each report.
 
 # Local Lab
 
@@ -6,7 +6,7 @@
 
 ## 專案狀態
 
-已發布 1.0.1（本機憑證簽署、未經 Developer ID 公證）；開發於 2026-10-20 暫停。目前源碼包含未完成、未發布的「新增遠端檔案」改動，其整合回歸尚未通過，細節見 `docs/status-2026-10-20.md` 與 `docs/overview.md`。本倉庫不包含建置產物、簽署憑證、使用者資料與已發布的 App／ZIP。
+目前正式版為 1.1.1（build 5），包含 DeepSeek AI 審碼、人格／Key 本機保存、修改預覽與真實狀態欄。全屏背景與卡片透明度修復見 `docs/verification-1.1.1.md`；AI 功能與測試範圍見 `docs/verification-1.1.0.md`。2026-10-20 的概覽及狀態報告為歷史記錄。本倉庫不包含建置產物、簽署憑證或使用者資料。
 
 ## 倉庫結構
 
