@@ -2,9 +2,10 @@
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mkdir -p "$ROOT_DIR/.build/check-cache"
+ARCH="$(uname -m)"
 xcrun clang -O2 -Wall -Wextra "$ROOT_DIR/Support/ShellBridge.c" -o "$ROOT_DIR/.build/LocalLabShellBridge"
 # CLT-only installations omit XCTest. Compile a native, async assertion harness.
-xcrun swiftc -parse-as-library -swift-version 5 -target arm64-apple-macosx14.0 \
+xcrun swiftc -parse-as-library -swift-version 5 -target "$ARCH-apple-macosx14.0" \
   -module-cache-path "$ROOT_DIR/.build/swift-cache" \
   "$ROOT_DIR/Sources/LocalLab/Models/Workspace.swift" \
   "$ROOT_DIR/Sources/LocalLab/Models/RemoteFile.swift" \

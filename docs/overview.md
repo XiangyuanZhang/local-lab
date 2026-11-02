@@ -1,3 +1,5 @@
+> Historical snapshot. Current behavior and releases: [AI review](ai-review.md), [version conventions](version-management.md), and the repository README.
+
 # Local Lab 项目完整说明
 
 编写日期：2026-11-02。本文依据现存源码、README、发布清单、测试报告和暂停记录整理；本次只编写文档，不继续开发、重建或连接真实服务器。历史测试结果不代表当前服务或当前源码再次通过验证。

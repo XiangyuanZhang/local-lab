@@ -7,11 +7,13 @@ struct LocalLabApp: App {
     @StateObject private var store = WorkspaceStore()
     @StateObject private var background = BackgroundStore()
     @StateObject private var appearance = AppearanceStore()
+    @StateObject private var ai = AIReviewStore()
     var body: some Scene {
         Window("Local Lab", id: "workspace") {
             ContentView(store: store, background: background)
                 .environmentObject(appearance)
-                .onAppear { delegate.store = store }
+                .environmentObject(ai)
+                .onAppear { delegate.store = store; delegate.ai = ai }
                 .task { await store.restoreSavedConnection() }
         }
         .defaultSize(width: 1080, height: 740)
@@ -26,6 +28,15 @@ struct LocalLabApp: App {
                     else { store.saveRemotePresented = true }
                 }.keyboardShortcut("s").disabled(!store.isReady || store.fileBusy || store.selected == nil)
             }
+            CommandMenu("AI") {
+                Button("AI 審碼面板") { ai.panelVisible.toggle() }.keyboardShortcut("r", modifiers: [.command, .shift])
+                Button("API 與人格設定…") { ai.panelVisible = true; ai.showSettings = true }
+                Divider()
+                Button("僅審碼") { ai.selectMode(.reviewOnly) }
+                Button("審碼並修改") { ai.selectMode(.edit) }
+                Divider()
+                Button("取消 AI 請求") { ai.cancel() }.disabled(!ai.isRunning)
+            }
             CommandMenu("核心") {
                 Button("連線…") { store.showConnection = true }.disabled(store.busy || store.runningID != nil)
                 Button("執行程式") { store.run() }.keyboardShortcut(.return, modifiers: .command).disabled(!store.canRun)
@@ -36,13 +47,14 @@ struct LocalLabApp: App {
                 Button("關閉專用核心") { Task { _ = await store.disconnect() } }.disabled(store.connection == nil || store.busy)
             }
         }
-        Settings { SettingsView(store: store).environmentObject(appearance) }
+        Settings { SettingsView(store: store).environmentObject(appearance).environmentObject(ai) }
     }
 }
 
 @MainActor
 final class LabDelegate: NSObject, NSApplicationDelegate {
     weak var store: WorkspaceStore?
+    weak var ai: AIReviewStore?
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
@@ -50,6 +62,7 @@ final class LabDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let store else { return .terminateNow }
+        ai?.cancel()
         store.persist()
         if store.connecting || store.closing { store.error = "請等目前的連線操作完成，再結束 App。"; return .terminateCancel }
         Task {

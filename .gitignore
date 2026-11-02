@@ -23,3 +23,12 @@ Resources/builtin-token.txt
 
 # Runtime credential files must never be committed.
 credential.txt
+
+# AI development fixtures and runtime secrets
+work/
+AIReview/
+api-keys.json
+
+# Python test bytecode
+__pycache__/
+*.pyc

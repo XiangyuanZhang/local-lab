@@ -8,14 +8,17 @@ struct CodeEditor: NSViewRepresentable {
     var python = true
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true; scroll.hasHorizontalScroller = true
+        let scroll = WrappingCodeScrollView()
+        scroll.hasVerticalScroller = true; scroll.hasHorizontalScroller = false
         scroll.autohidesScrollers = true; scroll.borderType = .noBorder
         scroll.wantsLayer = true
+        scroll.layerContentsRedrawPolicy = .duringViewResize
         scroll.layer?.cornerRadius = 12
         scroll.layer?.cornerCurve = .continuous
         scroll.layer?.masksToBounds = true
-        let editor = PythonTextView()
+        let editor = PythonTextView(frame: NSRect(origin: .zero, size: scroll.contentSize))
+        editor.minSize = .zero
+        editor.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         editor.isRichText = false; editor.allowsUndo = true
         editor.isAutomaticQuoteSubstitutionEnabled = false
         editor.isAutomaticDashSubstitutionEnabled = false
@@ -86,4 +89,26 @@ struct CodeEditor: NSViewRepresentable {
 }
 final class PythonTextView: NSTextView {
     override func insertTab(_ sender: Any?) { insertText("    ", replacementRange: selectedRange()) }
+}
+
+/// A wrapping editor must track the viewport during animated sidebar/inspector changes.
+/// Otherwise an oversized document can retain an off-screen horizontal scroll offset.
+private final class WrappingCodeScrollView: NSScrollView {
+    override func layout() {
+        super.layout()
+        guard let editor = documentView as? NSTextView else { return }
+        let viewport = contentSize
+        let minimum = NSSize(width: 0, height: max(0, viewport.height))
+        if editor.minSize != minimum { editor.minSize = minimum }
+        let size = NSSize(width: max(0, viewport.width), height: max(editor.frame.height, viewport.height))
+        if editor.frame.size != size {
+            editor.setFrameSize(size)
+            editor.needsDisplay = true
+        }
+        let y = min(max(0, contentView.bounds.minY), max(0, editor.frame.height - viewport.height))
+        if contentView.bounds.minX != 0 || contentView.bounds.minY != y {
+            contentView.scroll(to: NSPoint(x: 0, y: y))
+            reflectScrolledClipView(contentView)
+        }
+    }
 }

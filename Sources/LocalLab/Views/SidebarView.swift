@@ -8,22 +8,19 @@ struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             List(selection: $store.selection) {
-                Section {
-
-                    Label("遠端檔案", systemImage: "folder").tag(WorkspaceStore.remoteBrowserID)
-                    ForEach(store.remoteTreeRoots) { entry in RemoteSidebarRow(store: store, entry: entry) }
-                    ForEach(store.uncataloguedRemoteDrafts) { draft in
-                        HStack {
-                            Label(draft.name, systemImage: "doc.text")
-                            if draft.isRemoteDirty { DirtyDot() }
-                        }.tag(draft.id)
-                    }
-                } header: { sectionHeader("JUPYTERLAB") }
-                Section {
-                    ForEach(store.drafts.filter { $0.remotePath == nil }) { draft in
-                        Label(draft.name, systemImage: "doc.text").tag(draft.id)
-                    }
-                } header: { sectionHeader("本機草稿") }
+                sectionHeader("JUPYTERLAB")
+                Label("遠端檔案", systemImage: "folder").tag(WorkspaceStore.remoteBrowserID)
+                ForEach(store.remoteTreeRoots) { entry in RemoteSidebarRow(store: store, entry: entry) }
+                ForEach(store.uncataloguedRemoteDrafts) { draft in
+                    HStack {
+                        Label(draft.name, systemImage: "doc.text")
+                        if draft.isRemoteDirty { DirtyDot() }
+                    }.tag(draft.id)
+                }
+                sectionHeader("本機草稿")
+                ForEach(store.drafts.filter { $0.remotePath == nil }) { draft in
+                    Label(draft.name, systemImage: "doc.text").tag(draft.id)
+                }
             }
             .listStyle(.inset)
             .environment(\.defaultMinListRowHeight, 24)
@@ -36,12 +33,7 @@ struct SidebarView: View {
             footer
         }
         .background(sidebarBackdrop)
-        .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(Color.white.opacity(0.22))
-                .frame(width: 0.5)
-                .ignoresSafeArea()
-        }
+
     }
 
     private func sectionHeader(_ title: String) -> some View {
@@ -49,8 +41,15 @@ struct SidebarView: View {
             .font(.system(size: 10, weight: .semibold))
             .tracking(0.9)
             .foregroundStyle(.secondary)
-            .padding(.top, 8)
-            .padding(.bottom, 2)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.05)))
+            .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 4, trailing: 4))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .selectionDisabled()
+            .accessibilityAddTraits(.isHeader)
     }
 
     /// With a user background image the sidebar is dimmed by the per-region

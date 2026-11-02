@@ -103,7 +103,7 @@
 
 - 全部動效尊重系統「減少動態效果」：`PressableStyle`、`HoverLift`、`PulseDot`、`PulseRing`、`StatusOrb`、`PopOnChange`、極光漂移與設定頁預覽巡覽全部停用。
 - 視窗不在前景（`controlActiveState == .inactive`）時極光停止漂移，避免無謂的 GPU 唤醒。
-- 所有動畫皆為 SwiftUI 屬性動畫與單一 `matchedGeometryEffect`；唯一的計時迴圈是設定頁預覽（僅在設定視窗開啟時執行，`.task` 隨視窗關閉取消）。
+- 所有動畫皆為 SwiftUI 屬性動畫與單一 `matchedGeometryEffect`；設定頁預覽只在設定視窗開啟時執行，`.task` 隨關閉取消。狀態欄時鐘使用系統 TimelineView 按分鐘更新；電量、網路與 API 用量由事件更新，不增加高頻輪詢。
 - `CodeEditor` 的語法著色正則改為一次性編譯（`static let rules`），每次按鍵不再重新編譯三個 `NSRegularExpression`。
 
 ## 7. 刻意不改的部分
@@ -112,3 +112,18 @@
 - 本機 Python 版本校驗、執行順序（本機成功才送伺服器）、核心清理。
 - 編輯器快捷鍵（⌘N／⌘S／⌘Return／⌘.）、分頁內容、終端 PTY 行為。
 - 自訂背景圖片的裁切、模糊、透明度語義；有背景圖時極光不顯示。
+
+## 8. AI 審碼（1.1.0）
+
+- 右側審碼面板沿用 `cardSurface`、現有強調色與卡片圓角；原編輯器／terminal 位置不變。
+- 工具列 sparkle、人格選單、分段模式、Aurora.Chip、PressableStyle 與現有視覺語言一致。
+- 面板使用短距離滑入／淡入；請求狀態以系統 ProgressView 呈現，沒有新增輪詢、背景模型請求或閒置循環。減少動態效果時新增過場停用。
+- 修改預覽為原生 sheet；差異用 −／+ 和顏色雙重標記，完整程式碼為可選取唯讀 NSTextView。
+- 設定使用原生 grouped Form 和 SecureField，不在主流程暴露 API 協定細節；送出前清楚顯示目前檔案與目的接口。
+
+## 9. 狀態欄與檔案側欄（1.1.0）
+
+- 系統與 API 狀態膠囊高 36 pt，與原生工具列按鈕等高；模型、單次 token、啟動總量、平均消耗率保持單行。
+- 側欄沿用主區的 cardSurface、圓角與外邊距；分組標題是不可選取的圓角列，不使用原生矩形灰底。
+- 側欄 List 保持實例與內容寬度，外層寬度裁切／淡入完成開合；分隔／拖曳區限定於內容高度。工具列切換按鈕用原生樣式與正方形目標。
+- 編輯器按可見區寬度換行，最小文件高度跟隨可見區；開合後校正滾動原點，避免短文件消失。
