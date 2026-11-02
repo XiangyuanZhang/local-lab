@@ -9,7 +9,10 @@
 - `script/test_ai.sh` passed 10 groups: persona/mode/model/key persistence and POSIX permissions; endpoint isolation/normalization/removal; persona validation; current-file request contract/input bounds; strict responses and review-only edit stripping; apply/undo/stale/busy gates; automatic persona/key use without background requests; cancellation and missing-key state; bounded diff; actual URLSession loopback HTTP integration.
 - Actual localhost HTTP checks cover review/edit outputs, Authorization and body contract, 401/429/500, redirect refusal without credential forwarding, truncated/empty/invalid responses, response bounds and cancellation. Only synthetic `test-ai-only` is used.
 - Native UI fixture: opened right inspector, created 課程助教 persona and custom prompt, entered synthetic key once, saved, reviewed unchanged source, switched to edit, generated preview, displayed complete proposed code, explicitly applied, verified editor changed, then restored original source. No school connection or real drafts are loaded by the fixture.
-- Native sheet and inspector visually checked in the user's dark appearance. Aurora accents/cards are reused. A discovered centered diff layout was corrected to top-leading; final rerender/restart confirmation is recorded below before publication.
+- Native sheet and inspector visually checked in the user's dark appearance. Aurora accents/cards are reused. The diff now starts at the top-left; both the full-source and changed-block views were checked after restart.
+- Restarted the isolated App: selected persona, edit mode and saved synthetic key were reused; generating a new result required no key entry.
+- Edited the source after receiving an AI proposal: the preview displayed a stale-source warning and disabled Apply, preserving the newer edit.
+- Inspector uses a SwiftUI horizontal container inside the existing workspace split: no native inspector divider extends into the titlebar; slide/fade transition respects Reduce Motion. The user confirmed the divider and animation fixes. At the user's final request, editor height/titlebar spacing and native draggable workspace splits were restored.
 
 ## Publication gates
 

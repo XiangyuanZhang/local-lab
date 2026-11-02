@@ -16,8 +16,8 @@ if pgrep -x "$APP_NAME" >/dev/null; then
   echo 'Local Lab is running. Quit it normally before rebuilding so its remote kernel can be cleaned up.' >&2
   exit 1
 fi
-"$ROOT_DIR/script/swift.sh" build --configuration "$CONFIGURATION" --scratch-path "$ROOT_DIR/.build"
-BUILD_BINARY="$("$ROOT_DIR/script/swift.sh" build --configuration "$CONFIGURATION" --scratch-path "$ROOT_DIR/.build" --show-bin-path)/$APP_NAME"
+"$ROOT_DIR/script/swift.sh" build --jobs 2 --configuration "$CONFIGURATION" --scratch-path "$ROOT_DIR/.build"
+BUILD_BINARY="$("$ROOT_DIR/script/swift.sh" build --jobs 2 --configuration "$CONFIGURATION" --scratch-path "$ROOT_DIR/.build" --show-bin-path)/$APP_NAME"
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
 cp "$BUILD_BINARY" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 xcrun clang -O2 -Wall -Wextra "$ROOT_DIR/Support/ShellBridge.c" -o "$ROOT_DIR/.build/LocalLabShellBridge"

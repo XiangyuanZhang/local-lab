@@ -28,48 +28,58 @@ struct ContentView: View {
                     .frame(minWidth: 180, idealWidth: 215, maxWidth: 280)
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
-            VStack(spacing: 0) {
-                if let error = store.error {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Aurora.coral)
-                        Text(error).font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                        if error.contains("OSStatus") {
-                            Button("修復授權") { Task { _ = await store.repairKeychainAccess() } }
-                                .buttonStyle(PressableStyle(scale: 0.96))
-                                .disabled(store.repairingKeychain || store.busy)
-                                .help("重新允許這個版本的 App 讀取已儲存的 token")
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    if let error = store.error {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Aurora.coral)
+                            Text(error).font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                            if error.contains("OSStatus") {
+                                Button("修復授權") { Task { _ = await store.repairKeychainAccess() } }
+                                    .buttonStyle(PressableStyle(scale: 0.96))
+                                    .disabled(store.repairingKeychain || store.busy)
+                                    .help("重新允許這個版本的 App 讀取已儲存的 token")
+                            }
+                            Button { withAnimation(Motion.quick) { store.error = nil } } label: { Image(systemName: "xmark") }
+                                .buttonStyle(PressableStyle(scale: 0.9))
+                                .help("關閉提示")
                         }
-                        Button { withAnimation(Motion.quick) { store.error = nil } } label: { Image(systemName: "xmark") }
-                            .buttonStyle(PressableStyle(scale: 0.9))
-                            .help("關閉提示")
-                    }
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Aurora.coral.opacity(0.10)))
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Aurora.coral.opacity(0.24), lineWidth: 0.8))
-                    )
-                    .padding(.horizontal, 10)
-                    .padding(.top, 10)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-                VSplitView {
-                    Group {
-                        if store.browsingRemote { RemoteBrowserView(store: store) }
-                        else { EditorPane(store: store, fontSize: fontSize) }
-                    }
-                    .frame(minHeight: 230)
-                    .cardSurface(radius: appearance.cardRadius, opacity: appearance.cardOpacity)
-                    .padding(.horizontal, 10)
-                    .padding(.top, 10)
-                    BottomPanelView(store: store).frame(minHeight: 180, idealHeight: 260)
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(.ultraThinMaterial)
+                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Aurora.coral.opacity(0.10)))
+                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Aurora.coral.opacity(0.24), lineWidth: 0.8))
+                        )
                         .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
+                        .padding(.top, 10)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                    VSplitView {
+                        Group {
+                            if store.browsingRemote { RemoteBrowserView(store: store) }
+                            else { EditorPane(store: store, fontSize: fontSize) }
+                        }
+                        .frame(minHeight: 230)
+                        .cardSurface(radius: appearance.cardRadius, opacity: appearance.cardOpacity)
+                        .padding(.horizontal, 10)
+                        .padding(.top, 10)
+                        BottomPanelView(store: store).frame(minHeight: 180, idealHeight: 260)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                    }
+                    statusBar
                 }
-                statusBar
+                .background(regionOverlay)
+                if ai.panelVisible {
+                    AIReviewPane(store: ai, workspace: store)
+                        .frame(width: 360)
+                        .cardSurface(radius: appearance.cardRadius, opacity: appearance.cardOpacity)
+                        .padding(.vertical, 10).padding(.trailing, 10)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
-            .background(regionOverlay)
+            .animation(reduceMotion ? nil : Motion.gentle, value: ai.panelVisible)
             .navigationTitle(store.browsingRemote ? "遠端檔案" : store.selected?.name ?? "Python 工作區")
             .navigationSubtitle("Local Lab · TUM")
             .toolbar {
@@ -101,13 +111,7 @@ struct ContentView: View {
                     } label: { Image(systemName: "ellipsis") }.help("工作區操作")
                 }
             }
-            if ai.panelVisible {
-                AIReviewPane(store: ai, workspace: store)
-                    .frame(minWidth: 320, idealWidth: 370, maxWidth: 540)
-                    .cardSurface(radius: appearance.cardRadius, opacity: appearance.cardOpacity)
-                    .padding(.vertical, 10).padding(.trailing, 10)
-                    .transition(.opacity)
-            }
+
         }
         .frame(minWidth: ai.panelVisible ? 1080 : 760, minHeight: 550)
         .tint(Aurora.accent)
