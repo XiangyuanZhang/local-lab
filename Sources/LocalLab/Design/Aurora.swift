@@ -57,7 +57,19 @@ enum Aurora {
 
     /// Accent currently chosen in Settings › 外觀.
     static var accent: Color {
-        AccentChoice(rawValue: UserDefaults.standard.string(forKey: AppearanceKeys.accent) ?? "")?.color ?? brand
+        if let hex = UserDefaults.standard.string(forKey: AppearanceKeys.customAccent),
+           let custom = fromHex(hex) {
+            return custom
+        }
+        return AccentChoice(rawValue: UserDefaults.standard.string(forKey: AppearanceKeys.accent) ?? "")?.color ?? brand
+    }
+
+    /// Parses "RRGGBB" (the stored form of a custom accent).
+    static func fromHex(_ hex: String) -> Color? {
+        let cleaned = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "#", with: "")
+        guard cleaned.count == 6, let value = UInt32(cleaned, radix: 16) else { return nil }
+        return color(light: value, dark: value)
     }
 
     /// Title / wordmark gradient: blush → accent → sky.

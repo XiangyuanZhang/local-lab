@@ -27,7 +27,7 @@
 | `Aurora.coral` | `#F190A0` | `#FFA3B1` | 執行中、錯誤、未儲存 |
 | `Aurora.azure` | `#90BEF1` | `#9CC8F7` | 連結、遠端同步 |
 | `Aurora.mint` | `#3AE31C` | `#63F04B` | 已連線狀態點 |
-| `Aurora.accent` | 依設定 | 依設定 | 目前強調色（`accentChoice`） |
+| `Aurora.accent` | 依設定 | 依設定 | 目前強調色（`customAccent` → `accentChoice`） |
 | `Aurora.panelTint` | 白 50% | 深底 50% | 玻璃面板上的提亮／壓暗層 |
 
 漸層：
@@ -54,6 +54,7 @@
 | 選項 | 按鍵 | 值 | 影響 |
 | --- | --- | --- | --- |
 | 強調色 | `accentChoice` | `periwinkle`（預設）/ `coral` / `sky` / `mint` | 選中膠囊描邊、主要按鈕、品牌晶片、終端提示符、極光光斑、視窗 tint |
+| 自訂強調色 | `customAccent` | `RRGGBB` 十六進位；設定色環開啟系統色盤 | 覆寫上面四種預設；清除即回預設 |
 | 極光節奏 | `auroraPace` | `still` / `slow` / `standard`（預設）/ `brisk` | 光斑漂移一輪 0 / 44 / 26 / 15 秒；靜止時完全停止 |
 | 極光強度 | `auroraIntensity` | 0.4 – 1.8（預設 1.0） | 所有光斑與強調色光斑的強度倍率 |
 | 面板質感 | `panelFinish` | `frosted`（預設）/ `solid` / `clear` | 側邊欄與狀態膠囊材質，連帶調整內容卡不透明度 |

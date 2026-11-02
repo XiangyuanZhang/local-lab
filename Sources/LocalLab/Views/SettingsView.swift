@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct SettingsView: View {
     @ObservedObject var store: WorkspaceStore
@@ -77,7 +78,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .tint(appearance.accent.color)
+        .tint(appearance.effectiveAccent)
         .padding()
         .frame(width: 540, height: 720)
     }
@@ -87,7 +88,10 @@ struct SettingsView: View {
             Text("強調色")
             ForEach(AccentChoice.allCases) { choice in
                 Button {
-                    withAnimation(Motion.snappy) { appearance.accent = choice }
+                    withAnimation(Motion.snappy) {
+                        appearance.customAccentHex = nil
+                        appearance.accent = choice
+                    }
                 } label: {
                     Circle()
                         .fill(choice.gradient)
@@ -97,7 +101,7 @@ struct SettingsView: View {
                         )
                         .overlay(
                             Circle()
-                                .strokeBorder(appearance.accent == choice ? Color.primary.opacity(0.7) : .clear, lineWidth: 2)
+                                .strokeBorder(appearance.customAccentHex == nil && appearance.accent == choice ? Color.primary.opacity(0.7) : .clear, lineWidth: 2)
                                 .padding(-3)
                         )
                         .shadow(color: choice.color.opacity(0.35), radius: 3, x: 0, y: 1)
@@ -105,10 +109,12 @@ struct SettingsView: View {
                 .buttonStyle(PressableStyle(scale: 0.9))
                 .help(choice.title)
                 .accessibilityLabel(choice.title)
-                .accessibilityAddTraits(appearance.accent == choice ? .isSelected : [])
+                .accessibilityAddTraits(appearance.customAccentHex == nil && appearance.accent == choice ? .isSelected : [])
             }
+            AccentColorWell()
             Spacer()
-            Text(appearance.accent.title).font(.caption).foregroundStyle(.secondary)
+            Text(appearance.customAccentHex == nil ? appearance.accent.title : "自訂")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 }
@@ -132,7 +138,7 @@ struct AppearancePreview: View {
                 )
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
-                    Image(systemName: "sparkles").foregroundStyle(appearance.accent.color)
+                    Image(systemName: "sparkles").foregroundStyle(appearance.effectiveAccent)
                     Text("預覽").font(.headline)
                     Spacer()
                     Aurora.Chip(text: "執行中", systemImage: "waveform", kind: .coral, animated: true)
@@ -153,7 +159,7 @@ struct AppearancePreview: View {
                 HStack(spacing: 10) {
                     Button("執行程式") {}
                         .buttonStyle(.borderedProminent)
-                        .tint(appearance.accent.color)
+                        .tint(appearance.effectiveAccent)
                     Button("儲存至遠端") {}
                         .buttonStyle(PressableStyle(scale: 0.96))
                         .foregroundStyle(appearance.accent.color)
@@ -176,4 +182,55 @@ struct AppearancePreview: View {
             }
         }
     }
+}
+
+
+/// Circular custom-accent well backed by the shared NSColorPanel; the system
+/// ColorPicker renders as a wide pill on macOS, which looked out of place next
+/// to the round preset swatches.
+private struct AccentColorWell: View {
+    @EnvironmentObject private var appearance: AppearanceStore
+    @State private var target = ColorPanelTarget()
+
+    var body: some View {
+        let color = appearance.customColor ?? appearance.accent.color
+        Group {
+            if appearance.customAccentHex == nil {
+                // Rainbow ring reads as "pick any colour" rather than a preset.
+                Circle()
+                    .strokeBorder(AngularGradient(colors: [Aurora.coral, Aurora.cream, Aurora.mint, Aurora.azure, Aurora.brand, Aurora.coral], center: .center), lineWidth: 7)
+            } else {
+                Circle().fill(LinearGradient(colors: [color, color.opacity(0.55)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            }
+        }
+            .frame(width: 24, height: 24)
+            .overlay(Circle().strokeBorder(.white.opacity(0.65), lineWidth: 0.8))
+            .overlay(
+                Circle()
+                    .strokeBorder(appearance.customAccentHex != nil ? Color.primary.opacity(0.7) : .clear, lineWidth: 2)
+                    .padding(-3)
+            )
+            .shadow(color: color.opacity(0.35), radius: 3, x: 0, y: 1)
+            .contentShape(Circle())
+            .onTapGesture(perform: openPanel)
+            .help("自訂強調色")
+            .accessibilityLabel("自訂強調色")
+            .accessibilityAddTraits(.isButton)
+    }
+
+    private func openPanel() {
+        let panel = NSColorPanel.shared
+        panel.showsAlpha = false
+        panel.isContinuous = true
+        panel.color = NSColor(appearance.customColor ?? appearance.accent.color)
+        target.onChange = { appearance.setCustomAccent(Color(nsColor: $0)) }
+        panel.setTarget(target)
+        panel.setAction(#selector(ColorPanelTarget.changeColor(_:)))
+        panel.orderFront(nil)
+    }
+}
+
+private final class ColorPanelTarget: NSObject {
+    var onChange: (NSColor) -> Void = { _ in }
+    @objc func changeColor(_ sender: NSColorPanel) { onChange(sender.color) }
 }

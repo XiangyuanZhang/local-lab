@@ -11,8 +11,8 @@ struct BackgroundEditor: View {
     @State private var offset = CGSize.zero
     @State private var dragOrigin: CGSize?
     @State private var aspect = 1.6
-    @State private var transparency = 0.75
-    @State private var sidebarTransparency = 0.75
+    @State private var transparency = 0.60
+    @State private var sidebarTransparency = 0.30
     @State private var blur = 0.0
     @State private var error: String?
     private var viewport: CGSize { let width = min(560.0, 320 * aspect); return CGSize(width: width, height: width / aspect) }

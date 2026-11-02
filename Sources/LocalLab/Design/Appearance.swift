@@ -148,6 +148,8 @@ enum AppearanceKeys {
     static let panel = "panelFinish"
     static let corners = "cornerDensity"
     static let motion = "motionLevel"
+    /// Optional override for the accent colour, stored as an "RRGGBB" string.
+    static let customAccent = "customAccent"
 }
 
 @MainActor
@@ -172,6 +174,13 @@ final class AppearanceStore: ObservableObject {
     @Published var motion: MotionLevel {
         didSet { defaults.set(motion.rawValue, forKey: AppearanceKeys.motion) }
     }
+    /// `RRGGBB` override; nil means "use the preset accent".
+    @Published var customAccentHex: String? {
+        didSet {
+            if let customAccentHex { defaults.set(customAccentHex, forKey: AppearanceKeys.customAccent) }
+            else { defaults.removeObject(forKey: AppearanceKeys.customAccent) }
+        }
+    }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -181,6 +190,19 @@ final class AppearanceStore: ObservableObject {
         panel = PanelFinish(rawValue: defaults.string(forKey: AppearanceKeys.panel) ?? "") ?? .frosted
         corners = CornerDensity(rawValue: defaults.string(forKey: AppearanceKeys.corners) ?? "") ?? .regular
         motion = MotionLevel(rawValue: defaults.string(forKey: AppearanceKeys.motion) ?? "") ?? .standard
+        customAccentHex = defaults.string(forKey: AppearanceKeys.customAccent)
+    }
+
+    /// The colour actually used right now: the custom override or the preset.
+    var customColor: Color? { customAccentHex.flatMap(Aurora.fromHex) }
+    var effectiveAccent: Color { customColor ?? accent.color }
+
+    func setCustomAccent(_ color: Color) {
+        guard let srgb = NSColor(color).usingColorSpace(.sRGB) else { return }
+        let red = Int((srgb.redComponent * 255).rounded())
+        let green = Int((srgb.greenComponent * 255).rounded())
+        let blue = Int((srgb.blueComponent * 255).rounded())
+        customAccentHex = String(format: "%02X%02X%02X", red, green, blue)
     }
 
     var cardRadius: CGFloat { corners.cardRadius }
@@ -196,6 +218,7 @@ final class AppearanceStore: ObservableObject {
     }
 
     func reset() {
+        customAccentHex = nil
         accent = .periwinkle
         pace = .standard
         intensity = 1
