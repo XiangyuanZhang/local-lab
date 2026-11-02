@@ -64,10 +64,15 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("連線") {
-                Toggle("啟動時使用已儲存 token 自動連線", isOn: $autoConnect)
-                Text(store.hasSavedToken ? "Token 已安全保存在本機 macOS 鑰匙圈。" : "目前沒有已保存的 token。").font(.caption).foregroundStyle(.secondary)
-                Button("修復鑰匙圈授權") { Task { _ = await store.repairKeychainAccess() } }.disabled(store.repairingKeychain || store.busy)
-                Button("移除已儲存 token") { store.forgetSavedToken() }.disabled(!store.hasSavedToken)
+                Toggle("啟動時自動連線", isOn: $autoConnect)
+                if store.hasBuiltInToken {
+                    Text("這個版本內建 API token，啟動時直接連線，不經過鑰匙圈。要更換請修改 Resources/builtin-token.txt 後重新建置。")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text(store.hasSavedToken ? "Token 保存在本機檔案（Application Support/LocalLab/credential.txt，0600）。" : "目前沒有已保存的 token。")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("移除已儲存 token") { store.forgetSavedToken() }.disabled(!store.hasSavedToken)
+                }
                 Text("結束 App 時會嘗試關閉專用核心。移除 token 不會撤銷伺服器端的 token。").font(.caption).foregroundStyle(.secondary)
             }
         }

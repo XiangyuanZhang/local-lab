@@ -52,8 +52,9 @@ final class WorkspaceStore: ObservableObject {
     init(service: KernelService, library: DraftLibrary = DraftLibrary(), vault: TokenVault? = nil, localPython: LocalPythonService = LocalPythonRunner()) {
         self.localPython = localPython; self.service = service; self.library = library; self.remoteFiles = service as? RemoteFileService; self.vault = vault
         drafts = library.load(); selection = drafts.first?.id
+        hasSavedToken = BuiltinCredential.isAvailable
     }
-    convenience init() { self.init(service: JupyterClient(), library: DraftLibrary(), vault: KeychainTokenVault()) }
+    convenience init() { self.init(service: JupyterClient(), library: DraftLibrary(), vault: FileTokenVault()) }
     func runLiveVerification() {
         guard isReady, !verifying, let client = service as? JupyterClient else { return }
         verifying = true
@@ -69,8 +70,17 @@ final class WorkspaceStore: ObservableObject {
             verifying = false; syncNotice = "功能檢查完成：\(report.lastPathComponent)"
         }
     }
+    var hasBuiltInToken: Bool { BuiltinCredential.isAvailable }
+
     func restoreSavedConnection() async {
         guard !attemptedRestore else { return }; attemptedRestore = true
+        if let builtin = BuiltinCredential.token {
+            hasSavedToken = true
+            if (UserDefaults.standard.object(forKey: "autoConnect") as? Bool) ?? true {
+                _ = await connect(token: builtin, saveCredential: false)
+            }
+            return
+        }
         do {
             guard let saved = try vault?.read(), !saved.isEmpty else { return }
             hasSavedToken = true
@@ -78,6 +88,7 @@ final class WorkspaceStore: ObservableObject {
         } catch { self.error = safeError(error) }
     }
     func connectUsingSavedToken() async -> Bool {
+        if let builtin = BuiltinCredential.token { return await connect(token: builtin, saveCredential: false) }
         do {
             guard let token = try vault?.read(), !token.isEmpty else { error = "鑰匙圈中沒有可用的 token。"; return false }
             return await connect(token: token, saveCredential: false)
@@ -95,6 +106,7 @@ final class WorkspaceStore: ObservableObject {
         } catch { self.error = safeError(error); return false }
     }
     func forgetSavedToken() {
+        guard !hasBuiltInToken else { syncNotice = "這個版本內建了 token，請直接移除 Resources/builtin-token.txt 後重新建置。"; return }
         do { try vault?.remove(); hasSavedToken = false; syncNotice = "已移除鑰匙圈中的 token。" }
         catch { self.error = safeError(error) }
     }

@@ -10,6 +10,7 @@ xcrun swiftc -parse-as-library -swift-version 5 -target arm64-apple-macosx14.0 \
   "$ROOT_DIR/Sources/LocalLab/Models/RemoteFile.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/DraftLibrary.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/TokenVault.swift" \
+  "$ROOT_DIR/Sources/LocalLab/Services/BuiltinCredential.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/LocalPythonRunner.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/ShellTerminal.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/MarkdownHTML.swift" \

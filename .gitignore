@@ -17,3 +17,6 @@ app-test/
 # 使用者資料與快取
 drafts.json
 Background/
+
+# Personal API token baked into the app bundle, never committed.
+Resources/builtin-token.txt

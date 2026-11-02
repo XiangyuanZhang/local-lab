@@ -18,12 +18,12 @@
 ## 使用
 
 1. 先依「開發」章節執行 `./script/build_and_run.sh` 建置，再開啟產生的 **Local Lab.app**。
-2. 按「連線」，輸入個人 JupyterHub token，並保存至本機 macOS 鑰匙圈；下次啟動會自動連線。測試可先選 1 Hour，scope 為 `access:servers!server=go97lep/`。
+2. 按「連線」。若這個版本內建 token（`Resources/builtin-token.txt`），直接按「連線」即可；否則貼上個人 JupyterHub token，會存到本機檔案（0600 權限）供下次自動連線。測試可先選 1 Hour，scope 為 `access:servers!server=go97lep/`。
 3. 編輯 Python 草稿，再按「執行」或 **⌘ Return**。
 4. 用 **⌘ .** 中斷 App 專用核心。其他 JupyterLab 核心不會被中斷。
 5. 透過工具列選單「關閉專用核心」，或正常結束 App，以清理核心。
 
-連線目的地固定為 `https://lecture.cs.tum.de:9000/user/go97lep/api`。需保持可存取校內主機的網路路徑。token 到期後需更新鑰匙圈中的 token；本機保存不會延長伺服器端有效期。設定可關閉自動連線或移除已保存 token。
+連線目的地固定為 `https://lecture.cs.tum.de:9000/user/go97lep/api`。需保持可存取校內主機的網路路徑。token 到期後在連線面板更新；內建 token 則修改 `Resources/builtin-token.txt` 後重新建置。本機保存不會延長伺服器端有效期。設定可關閉自動連線或移除已保存 token。
 
 ## 外觀與動效
 
@@ -42,14 +42,18 @@
 - Python 程式先在本機執行；核對完整 Python 版本，成功後才送至伺服器覆核。
 - 編輯器下方提供本機與伺服器兩個互動 shell terminal，支援發送指令、回覆 read、保留 shell 狀態、中斷及重新連線。
 - 使用 URLSession 的系統 TLS 驗證，不停用憑證檢查。
-- token 依使用者授權保存在本機 macOS 鑰匙圈，非明文檔案或 UserDefaults，不使用 cookie 或命令列傳遞；可在設定中移除。
+- token 只會來自 App 內建的 `builtin-token.txt`，或使用者貼上後存放於 `~/Library/Application Support/LocalLab/credential.txt`（0600 權限）；不寫入鑰匙圈、UserDefaults、cookie，也不經命令列傳遞。設定中可移除（內建 token 除外）。
 - 專用核心由 App 建立；關閉時 DELETE 後再以 GET 404 確認。清理失败會顯示核心 ID，保留重試機會。
 
 ## Markdown 與 token
 
 Markdown（.md / .markdown）預設使用本機閱讀預覽，可切換「編輯」及「並排」。版面參考本機 Typora GitHub 主題的閱讀寬度、行距、標題、引用、表格和程式碼區塊，跟隨深淺色模式。文件不送到第三方渲染服務。支援 GFM 表格、清單、任務清單與程式碼區塊；HTML 經清理，文件中的腳本不執行。外部或相對路徑圖片目前顯示替代文字；數學公式、Mermaid 與 Typora 的完整即時 WYSIWYG 編輯尚未實作。
 
-首次輸入 token 並勾選「保存在本機 macOS 鑰匙圈」後，App 會保存成功連線的 token。下次啟動從鑰匙圈讀取，並建立新的專用核心。設定可停用自動連線、移除 token。移除本機 token 不等於撤銷 JupyterHub 端 token。
+首次連線成功後，App 會把 token 存到 `~/Library/Application Support/LocalLab/credential.txt`（0600 權限）；下次啟動直接讀取並建立新的專用核心。若建置時放入了 `Resources/builtin-token.txt`，則完全跳過輸入與檔案，啟動即連線。設定可停用自動連線、移除 token；移除本機 token 不等於撤銷 JupyterHub 端 token。
+
+## 內建 token（個人建置）
+
+把 token 寫進 `Resources/builtin-token.txt`（這個檔案已列入 `.gitignore`，不會進版控），再執行 `./script/build_and_run.sh`：建置腳本會把整個 `Resources/` 複製進 `Contents/Resources/`，App 啟動時偵測到就自動連線，完全不需要鑰匙圈或手動輸入。刪掉該檔再重新建置即恢復為手動輸入。
 
 ## 檔案與目錄同步
 
@@ -123,7 +127,11 @@ LOCAL_LAB_TEST_API=http://127.0.0.1:18768/api LOCAL_LAB_VERIFY_KEYCHAIN=1 LOCAL_
 
 正常結束 App 會關閉本機 shell 並 DELETE／GET 404 確認 App 專用遠端 terminal；不關閉其他使用者 terminal。強制結束或失去網路仍可能阻止遠端清理。
 
-## 固定簽署與鑰匙圈
+## 憑證存放（2026-11-02 起）
+
+App 已改用 `FileTokenVault` 把 token 存在應用程式支援目錄的明文檔案（0600），不再讀寫 macOS 鑰匙圈；因此重建造成的簽章變化不會再觸發 `Keychain OSStatus -25293`。舊鑰匙圈項目留著不影響運作，可自行在「鑰匙圈存取」中刪除。若 bundle 內含 `builtin-token.txt`，啟動時直接用它連線，連檔案都不需要。
+
+## 固定簽署與鑰匙圈（歷史）
 
 開發建置由 ad hoc 簽署改為固定本機憑證，designated requirement 綁定 App identifier 與同一憑證 SHA-1，沒有改成允許任意 App，也未改動系統 TLS 信任。自動連線與使用已保存 token 不再重寫鑰匙圈項目。固定簽署未能單獨解決舊 token 的授權問題。現在啟動時使用無互動讀取，不自動彈出授權視窗；連線或設定中的「修復鑰匙圈授權」會更新該 token 項目的 ACL，只信任目前已簽署的 Local Lab。舊項目修復需要 macOS 確認；本次修復完成後，已確認新程序重新開啟時可靜默讀取 token 並自動連線。
 

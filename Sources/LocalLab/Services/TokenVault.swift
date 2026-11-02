@@ -77,3 +77,33 @@ struct KeychainTokenVault: TokenVault {
     }
     private func failure(_ status: OSStatus) -> LabError { .message("Keychain OSStatus \(status)" + (status == errSecInteractionNotAllowed ? " · 請使用「修復鑰匙圈授權」一次。" : "")) }
 }
+
+/// Stores the API token in a 0600 file inside Application Support instead of the
+/// login keychain. This keeps personal builds working without any keychain ACLs:
+/// the ad-hoc signature changes on every rebuild, which is what made the legacy
+/// keychain item unreadable.
+struct FileTokenVault: TokenVault {
+    let url: URL
+    init(url: URL? = nil) {
+        self.url = url ?? FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("LocalLab/credential.txt")
+    }
+    func read() throws -> String? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let text = try String(contentsOf: url, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
+    }
+    func save(_ token: String) throws {
+        let directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let text = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        try text.write(to: url, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
+    func remove() throws {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try FileManager.default.removeItem(at: url)
+    }
+    func repairAccess() throws -> String? { try read() }
+}
