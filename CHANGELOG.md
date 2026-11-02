@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1 — 2026-11-02
+
+- Restore the transparent native titlebar and status capsules across full-screen transitions using a small window lifecycle bridge. Full-screen style masks are never rewritten.
+- Remove the rectangular workspace scrim and double card dimming with custom backgrounds; dimming now stays inside rounded content cards, preserving configured transparency.
+- Confirmed full-screen entry/exit, native toolbar action, visible code and background continuity in an isolated window using the existing background image.
+
 ## 1.1.0 — 2026-11-02
 
 - Live titlebar clock, battery/charging/network state and single-row API model/token/average-rate metrics; launch accounting handles unknown/cancelled usage.
