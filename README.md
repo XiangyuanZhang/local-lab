@@ -1,3 +1,5 @@
+> Current release: **1.0.2** (2026-11-02), versioned by `VERSION`. Historical sections below describe earlier builds. See [CHANGELOG.md](CHANGELOG.md) and [docs/version-management.md](docs/version-management.md) for the current artifact and backup policy.
+
 # Local Lab
 
 原生 SwiftUI macOS App，透過整合於本機 App 的 Jupyter 連線服務，在 TUM 遠端 Python 核心執行程式。沒有雲端 UI 或本機 HTTP 監聽埠。

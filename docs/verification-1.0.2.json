@@ -1,0 +1,14 @@
+{
+  "passed": [
+    "heartbeat_10000_duplicate_callbacks_early_completion_and_cancellation",
+    "unauthenticated_execution_disabled",
+    "local_failure_never_calls_remote_execution",
+    "execution_state_and_owned_kernel_cleanup",
+    "cleanup_failure_preserves_retry_state",
+    "draft_roundtrip_without_credentials",
+    "saved_token_reuse_and_forget"
+  ],
+  "success": true,
+  "scope": "Native basic assertion harness only; optional network, Keychain and Markdown checks not enabled.",
+  "date": "2026-11-02"
+}

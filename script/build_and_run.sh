@@ -7,8 +7,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 APP_NAME=LocalLab
 BUNDLE_ID=local.edward.LocalLab
+VERSION="$(cat "$ROOT_DIR/VERSION")"
+BUILD_NUMBER=3
 APP_BUNDLE="$ROOT_DIR/../Local Lab.app"
-if [[ "$MODE" == "--release" ]]; then APP_BUNDLE="$ROOT_DIR/../releases/1.0.1/Local Lab.app"; fi
+if [[ "$MODE" == "--release" ]]; then APP_BUNDLE="$ROOT_DIR/../releases/$VERSION/Local Lab.app"; fi
 # Do not force-kill a running session; the app owns remote resources.
 if pgrep -x "$APP_NAME" >/dev/null; then
   echo 'Local Lab is running. Quit it normally before rebuilding so its remote kernel can be cleaned up.' >&2
@@ -20,7 +22,15 @@ mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
 cp "$BUILD_BINARY" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 xcrun clang -O2 -Wall -Wextra "$ROOT_DIR/Support/ShellBridge.c" -o "$ROOT_DIR/.build/LocalLabShellBridge"
 cp "$ROOT_DIR/.build/LocalLabShellBridge" "$APP_BUNDLE/Contents/MacOS/LocalLabShellBridge"
-cp "$ROOT_DIR/Resources/"* "$APP_BUNDLE/Contents/Resources/"
+# Release artifacts must not carry the personal credential.
+for resource in "$ROOT_DIR/Resources/"*; do
+  [[ "$(basename "$resource")" == "builtin-token.txt" ]] && continue
+  cp "$resource" "$APP_BUNDLE/Contents/Resources/"
+done
+rm -f "$APP_BUNDLE/Contents/Resources/builtin-token.txt"
+if [[ "$MODE" != "--release" && -f "$ROOT_DIR/Resources/builtin-token.txt" ]]; then
+  cp "$ROOT_DIR/Resources/builtin-token.txt" "$APP_BUNDLE/Contents/Resources/builtin-token.txt"
+fi
 cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -30,9 +40,9 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <key>CFBundleName</key><string>Local Lab</string>
 <key>CFBundleDisplayName</key><string>Local Lab</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.0.1</string>
+<key>CFBundleShortVersionString</key><string>$VERSION</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
-<key>CFBundleVersion</key><string>2</string>
+<key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>
 <key>NSHighResolutionCapable</key><true/>

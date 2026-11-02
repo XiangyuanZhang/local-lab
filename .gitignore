@@ -20,3 +20,6 @@ Background/
 
 # Personal API token baked into the app bundle, never committed.
 Resources/builtin-token.txt
+
+# Runtime credential files must never be committed.
+credential.txt
