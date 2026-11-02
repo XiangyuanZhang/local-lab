@@ -39,13 +39,13 @@ enum Aurora {
     static let scrim = color(light: 0xEDEDED, dark: 0x1E1E20)
 
     /// Brand accent used for selection, focus and primary actions.
-    static let brand = color(light: 0xA090F1, dark: 0xB4A6FF)
+    static let brand = color(light: 0x7055B8, dark: 0xB4A6FF)
     /// Warm accent: running state, live recording, attention.
-    static let coral = color(light: 0xF190A0, dark: 0xFFA3B1)
+    static let coral = color(light: 0xC3374F, dark: 0xFFA3B1)
     /// Cool accent: links, remote/sync affordances.
-    static let azure = color(light: 0x90BEF1, dark: 0x9CC8F7)
+    static let azure = color(light: 0x2369B3, dark: 0x9CC8F7)
     /// Success / connected.
-    static let mint = color(light: 0x3AE31C, dark: 0x63F04B)
+    static let mint = color(light: 0x237A14, dark: 0x63F04B)
 
     /// Wash laid over frosted panels so busy backgrounds never hurt legibility.
     static let panelTint = color(light: 0xFFFFFF, dark: 0x0F0F16, alpha: 0.50)
@@ -98,41 +98,51 @@ enum Aurora {
 
     // MARK: Surfaces
 
-    /// Frosted panel used for the sidebar, bottom panel and inspector cards.
-    struct GlassPanel: ViewModifier {
+    /// One material recipe for every custom card, capsule and control surface.
+    struct FrostedSurface: View {
         var radius: CGFloat = 18
-        var borderOpacity: Double = 0.42
-        func body(content: Content) -> some View {
-            content.background(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(.regularMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            .fill(Aurora.panelTint)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            .strokeBorder(Color.white.opacity(borderOpacity), lineWidth: 0.8)
-                    )
-            )
-            .shadow(color: Color.black.opacity(0.07), radius: 18, x: 0, y: 8)
+        var tintOpacity: Double = 0.04
+        var borderOpacity: Double = 0.32
+        var material: Material = .ultraThinMaterial
+        var materialOpacity: Double = 0.68
+        @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+        var body: some View {
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .fill(reduceTransparency ? AnyShapeStyle(Aurora.scrim) : AnyShapeStyle(material))
+                .opacity(reduceTransparency ? 1 : materialOpacity)
+                .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Aurora.scrim.opacity(tintOpacity)))
+                .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.white.opacity(borderOpacity), lineWidth: 0.8))
         }
     }
 
-    /// Opaque-ish card used for large content surfaces (editor, tables).
+    /// Controls float above content; content panels retain regular material.
+    struct NavigationGlassSurface: ViewModifier {
+        var radius: CGFloat = 18
+        @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+        @ViewBuilder func body(content: Content) -> some View {
+            if #available(macOS 26.0, *), !reduceTransparency {
+                content.glassEffect(.regular.tint(Aurora.scrim.opacity(0.35)), in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            } else {
+                content.background(FrostedSurface(radius: radius, tintOpacity: 0.16, material: .regularMaterial, materialOpacity: 1))
+            }
+        }
+    }
+
+    struct GlassPanel: ViewModifier {
+        var radius: CGFloat = 18
+        var borderOpacity: Double = 0.32
+        func body(content: Content) -> some View {
+            content.background(FrostedSurface(radius: radius, borderOpacity: borderOpacity))
+                .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .shadow(color: Color.black.opacity(0.06), radius: 16, x: 0, y: 6)
+        }
+    }
+
     struct CardSurface: ViewModifier {
         var radius: CGFloat = 18
         var opacity: Double = 0.94
         func body(content: Content) -> some View {
-            content
-                .background(
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .fill(Color(nsColor: .controlBackgroundColor).opacity(opacity))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.32), lineWidth: 0.8)
-                )
+            content.background(FrostedSurface(radius: radius))
                 .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
                 .shadow(color: Color.black.opacity(0.06), radius: 16, x: 0, y: 6)
         }
@@ -344,7 +354,7 @@ struct EmptyStateCard: View {
         .padding(28)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(.regularMaterial)
                 .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.white.opacity(0.36), lineWidth: 0.8))
         )
         .padding(20)

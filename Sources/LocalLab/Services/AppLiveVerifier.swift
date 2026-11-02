@@ -53,6 +53,7 @@ enum AppLiveVerifier {
             add("authenticated_connection",true)
             try await client.createRemoteDirectory(path: folder); createdFolder = true
             add("create_directory",true)
+            try await client.execute(code: "import sys, os\nsys.dont_write_bytecode = True\nos.environ['MPLCONFIGDIR'] = " + String(reflecting: folder + "/matplotlib-cache") + "\nget_ipython().history_manager.enabled = False") { _ in }
             let py = folder + "/command-check.py"
             let v1 = "print('APP_CHECK_V1')\n"
             _ = try await client.createRemoteFile(path: py, content: v1); createdFiles.append(py)
@@ -61,7 +62,7 @@ enum AppLiveVerifier {
             add("create_file_and_readback",true)
             let v2 = """
             print('APP_CHECK_STDOUT_V2')
-            import sys, io
+            import sys, io, os
             print('APP_CHECK_STDERR_V2', file=sys.stderr)
             import matplotlib
             matplotlib.use('Agg')
@@ -76,6 +77,8 @@ enum AppLiveVerifier {
             fig.savefig(image_bytes, format='png')
             display(Image(data=image_bytes.getvalue()))
             plt.close(fig)
+            import shutil
+            shutil.rmtree(os.environ["MPLCONFIGDIR"], ignore_errors=True)
             """ + "\n"
             let edited = try await client.saveRemoteFile(path: py,content:v2,expectedContent:v1)
             try check(edited.content == v2,"Modified file did not match")
@@ -129,7 +132,7 @@ enum AppLiveVerifier {
                 func send(_ value: [Any]) async throws { try await ws.send(.string(String(decoding:try JSONSerialization.data(withJSONObject:value),as:UTF8.self))) }
                 try await send(["set_size",24,100,0,0])
                 let input = "input-"+UUID().uuidString.prefix(8).lowercased()
-                try await send(["stdin","printf 'TERM_RESULT_%s\\n' \"$((123*7))\"; printf 'TERM_ERROR_%s\\n' \"$((123*7+1))\" >&2; read -r lab_response; printf 'INPUT_REPLY_%s\\n' \"$lab_response\"\r"])
+                try await send(["stdin","unset HISTFILE; printf 'TERM_RESULT_%s\\n' \"$((123*7))\"; printf 'TERM_ERROR_%s\\n' \"$((123*7+1))\" >&2; read -r lab_response; printf 'INPUT_REPLY_%s\\n' \"$lab_response\"\r"])
                 try await send(["stdin",input+"\r"])
                 let verified = try await withThrowingTaskGroup(of:Bool.self) { group in
                     group.addTask {
@@ -146,9 +149,9 @@ enum AppLiveVerifier {
                     group.addTask { try await Task.sleep(nanoseconds:20_000_000_000); ws.cancel(with:.goingAway,reason:nil); throw LabError.message("Terminal WebSocket test timed out") }
                     let value = try await group.next() ?? false; group.cancelAll(); return value
                 }
-                add("terminal_API_WebSocket_input_output",verified,["stdout_marker":"TERM_RESULT_861","stderr_marker":"TERM_ERROR_862","interactive_input_reply_verified":verified,"native_terminal_UI":"not_implemented"])
+                add("terminal_API_WebSocket_input_output",verified,["stdout_marker":"TERM_RESULT_861","stderr_marker":"TERM_ERROR_862","interactive_input_reply_verified":verified,"native_terminal_UI":"not_exercised_by_API_harness"])
             } catch {
-                add("terminal_API_WebSocket_input_output",false,["error":(error as? LabError)?.localizedDescription ?? String(describing:type(of:error)),"native_terminal_UI":"not_implemented"])
+                add("terminal_API_WebSocket_input_output",false,["error":(error as? LabError)?.localizedDescription ?? String(describing:type(of:error)),"native_terminal_UI":"not_exercised_by_API_harness"])
             }
             try JSONSerialization.data(withJSONObject:["folder":folder,"python_path":py,"markdown_path":md],options:.prettyPrinted).write(to:ready)
             print("READY_FOR_UI_CHECK: " + folder,flush:true)

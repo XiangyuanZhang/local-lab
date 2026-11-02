@@ -55,7 +55,7 @@ struct BottomPanelView: View {
             .transition(.opacity)
             .animation(Motion.quick, value: store.bottomPanel)
         }
-        .background(Aurora.scrim.opacity(hasBackground ? scrimOpacity : 0))
+        .background(Aurora.scrim.opacity(hasBackground ? 0.35 * scrimOpacity : 0))
         .cardSurface(radius: appearance.cardRadius, opacity: hasBackground ? 0 : appearance.cardOpacity)
     }
 }

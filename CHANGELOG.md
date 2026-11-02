@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.2 — 2026-11-02
+
+- Preserve native fullscreen hover controls while keeping workspace actions inside the content area; use compact native chrome.
+- Unify content frost and navigation glass, improve light-mode status contrast, add a readable fullscreen document-title capsule and remove nested button fills.
+- Bound native long titles to prevent status overlap; retain terminal leading padding and horizontal position across resize/fullscreen transitions.
+- Expand isolated UI fixtures for light/dark, compact windows, long Unicode names, code wrapping, Markdown and output rendering; bundle the real terminal helper.
+
 ## 1.1.1 — 2026-11-02
 
 - Restore the transparent native titlebar and status capsules across full-screen transitions using a small window lifecycle bridge. Full-screen style masks are never rewritten.

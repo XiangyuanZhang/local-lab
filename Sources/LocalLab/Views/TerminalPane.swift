@@ -41,12 +41,17 @@ struct TerminalPane: View {
                                 .font(.system(size: 13, design: .monospaced))
                                 .textSelection(.enabled)
                                 .fixedSize(horizontal: true, vertical: false)
-                            Color.clear.frame(height: 1).id("terminal-bottom")
+                            Color.clear.frame(height: 1)
                         }
                         .frame(minWidth: max(0, geometry.size.width - 36), minHeight: max(0, geometry.size.height - 36), alignment: .topLeading)
                         .padding(18)
+                        .id("terminal-content")
                     }
-                    .onChange(of: store.terminalOutput[location]) { _, _ in proxy.scrollTo("terminal-bottom", anchor: .bottom) }
+                    .defaultScrollAnchor(.bottomLeading)
+                    .onChange(of: geometry.size.width) { _, _ in
+                        proxy.scrollTo("terminal-content", anchor: .bottomLeading)
+                    }
+                    .onChange(of: store.terminalOutput[location]) { _, _ in proxy.scrollTo("terminal-content", anchor: .bottomLeading) }
                 }
             }
 
