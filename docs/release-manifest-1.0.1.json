@@ -1,0 +1,36 @@
+{
+  "version": "1.0.1",
+  "platform": "macOS 14+ arm64",
+  "configuration": "release",
+  "background_features": [
+    "image_selection",
+    "pan_and_zoom_crop",
+    "aspect_ratio",
+    "transparency",
+    "Gaussian_blur",
+    "preview_then_confirm",
+    "local_persistence",
+    "restore_default",
+    "continuous_whole_window_background",
+    "independent_sidebar_transparency",
+    "independent_main_transparency",
+    "legacy_background_settings_compatibility"
+  ],
+  "verification": "Release build, signature and startup passed; 10000 concurrent duplicate callback tests; 480 unchanged Markdown updates render once; local mock Jupyter regression passed. No 1-2 hour connected soak completed; WindowServer attribution remains inconclusive.",
+  "sha256": "364cc17967d1451ed046b4e9a11f066c88160df8f66e2ea88b1e3f0cb89b81b0",
+  "replaces": "1.0.0",
+  "existing_token_migration": "use repair keychain access once for this binary",
+  "notarized": false,
+  "fixes": [
+    "Sidebar opacity confirmation",
+    "One-shot WebSocket ping completion across callback/timeout/cancellation",
+    "Skip unchanged Markdown renders"
+  ],
+  "ui_fixes_2026_10_20": [
+    "Remove remote table alternating opaque row bands",
+    "Inset sidebar source-list rows",
+    "Disable local shell prompt padding",
+    "Horizontal terminal scrolling with top-leading output alignment"
+  ],
+  "ui_verification": "Release build and signature passed; table visually checked with isolated local fixture; installed local terminal returned UI_LAYOUT_OK and aligned top-leading. Live remote connection not revalidated: Keychain -25293 after rebuild."
+}

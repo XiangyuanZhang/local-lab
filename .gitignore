@@ -1,0 +1,19 @@
+.build/
+.DS_Store
+dist/
+
+# 本機簽署身分（私鑰與 keychain），絕不進版本庫
+.local-signing/
+
+# Codex 專案環境設定
+.codex/
+
+# 建置與發布產物
+*.zip
+releases/
+*.app/
+app-test/
+
+# 使用者資料與快取
+drafts.json
+Background/
