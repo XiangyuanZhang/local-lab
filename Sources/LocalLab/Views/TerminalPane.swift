@@ -4,6 +4,7 @@ struct TerminalPane: View {
     @ObservedObject var store: WorkspaceStore
     let location: TerminalLocation
     @State private var input = ""
+    @FocusState private var inputFocused: Bool
     private var connected: Bool { store.terminals[location] != nil }
     private var title: String { location == .local ? "本機 Terminal" : "伺服器 Terminal" }
 
@@ -52,22 +53,26 @@ struct TerminalPane: View {
             Divider().opacity(0.45)
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
-                    Image(systemName: "chevron.right").font(.caption2.weight(.bold)).foregroundStyle(Aurora.brand.opacity(0.8))
+                    Image(systemName: "chevron.right").font(.caption2.weight(.bold)).foregroundStyle(Aurora.accent.opacity(0.85))
                     TextField("輸入指令或回覆，按 Return 發送", text: $input)
                         .textFieldStyle(.plain)
+                        .focused($inputFocused)
                         .onSubmit { send() }
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(Capsule(style: .continuous).fill(Color.black.opacity(0.05)))
-                .overlay(Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.35), lineWidth: 0.7))
+                .overlay(Capsule(style: .continuous).strokeBorder(inputFocused ? Aurora.accent.opacity(0.55) : Color.white.opacity(0.35), lineWidth: 0.8))
+                .scaleEffect(inputFocused ? 1.004 : 1)
+                .animation(Motion.snappy, value: inputFocused)
 
                 Button { send() } label: {
                     Image(systemName: "arrow.up.circle.fill").font(.system(size: 20))
                 }
                 .buttonStyle(PressableStyle(scale: 0.9))
-                .foregroundStyle(Aurora.brand)
+                .foregroundStyle(Aurora.accent)
                 .disabled(!connected || input.isEmpty)
+                .animation(Motion.quick, value: input.isEmpty)
                 .help("發送（Return）")
             }
             .padding(10)

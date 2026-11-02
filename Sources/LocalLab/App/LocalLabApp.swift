@@ -6,9 +6,11 @@ struct LocalLabApp: App {
     @NSApplicationDelegateAdaptor(LabDelegate.self) private var delegate
     @StateObject private var store = WorkspaceStore()
     @StateObject private var background = BackgroundStore()
+    @StateObject private var appearance = AppearanceStore()
     var body: some Scene {
         Window("Local Lab", id: "workspace") {
             ContentView(store: store, background: background)
+                .environmentObject(appearance)
                 .onAppear { delegate.store = store }
                 .task { await store.restoreSavedConnection() }
         }
@@ -34,7 +36,7 @@ struct LocalLabApp: App {
                 Button("關閉專用核心") { Task { _ = await store.disconnect() } }.disabled(store.connection == nil || store.busy)
             }
         }
-        Settings { SettingsView(store: store) }
+        Settings { SettingsView(store: store).environmentObject(appearance) }
     }
 }
 

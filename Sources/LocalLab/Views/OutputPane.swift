@@ -3,6 +3,7 @@ import AppKit
 
 struct OutputPane: View {
     @ObservedObject var store: WorkspaceStore
+    @EnvironmentObject private var appearance: AppearanceStore
     var items: [OutputItem] { store.outputs[store.selection ?? UUID()] ?? [] }
     var runState: String? { store.runStates[store.selection ?? UUID()] }
     private var failed: Bool { runState?.contains("錯誤") == true || runState?.contains("失敗") == true }
@@ -13,7 +14,10 @@ struct OutputPane: View {
             HStack(spacing: 10) {
                 Label("結果", systemImage: "terminal").font(.headline)
                 if let state = runState {
-                    Aurora.Chip(text: state, systemImage: failed ? "exclamationmark.triangle.fill" : running ? "waveform" : "checkmark.circle", kind: failed ? .coral : running ? .brand : .mint)
+                    Aurora.Chip(text: state,
+                                systemImage: failed ? "exclamationmark.triangle.fill" : running ? "waveform" : "checkmark.circle",
+                                kind: failed ? .coral : running ? .brand : .mint,
+                                animated: running)
                         .transition(.opacity.combined(with: .scale(scale: 0.94)))
                 }
                 if let id = store.selection, let duration = store.durations[id] {
@@ -39,6 +43,8 @@ struct OutputPane: View {
                 VStack(spacing: 10) {
                     ZStack {
                         Circle().fill(Aurora.signature.opacity(0.14)).frame(width: 62, height: 62)
+                        PulseRing(active: running, tint: Aurora.accent, lineWidth: 1.2)
+                            .frame(width: 62, height: 62)
                         Image(systemName: "terminal").font(.system(size: 24, weight: .light)).foregroundStyle(Aurora.signature)
                     }
                     Text(running ? "等待執行結果…" : "結果會顯示在這裡").font(.callout.weight(.medium)).foregroundStyle(.secondary)
@@ -51,6 +57,7 @@ struct OutputPane: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 10) {
                             ForEach(items) { item in
+                                Group {
                                 if let text = item.text {
                                     Text(text)
                                         .font(.system(size: 13, design: .monospaced))
@@ -65,10 +72,14 @@ struct OutputPane: View {
                                         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.4), lineWidth: 0.8))
                                         .accessibilityLabel("Python 程式產生的圖表")
                                 }
+                                }
+                                .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity),
+                                                        removal: .opacity))
                             }
                             Color.clear.frame(height: 1).id("bottom")
                         }
                         .padding(18)
+                        .animation(Motion.gentle, value: items.count)
                     }
                     .onChange(of: items.reduce(0) { $0 + ($1.text?.count ?? 1) }) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
                 }

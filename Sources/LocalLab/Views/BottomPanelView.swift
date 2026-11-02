@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BottomPanelView: View {
     @ObservedObject var store: WorkspaceStore
+    @EnvironmentObject private var appearance: AppearanceStore
     @Namespace private var pill
 
     var body: some View {
@@ -18,7 +19,7 @@ struct BottomPanelView: View {
                                 if store.bottomPanel == panel {
                                     Capsule(style: .continuous)
                                         .fill(Color.white.opacity(0.62))
-                                        .overlay(Capsule(style: .continuous).strokeBorder(Aurora.brand.opacity(0.20), lineWidth: 0.7))
+                                        .overlay(Capsule(style: .continuous).strokeBorder(Aurora.accent.opacity(0.24), lineWidth: 0.7))
                                         .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 1)
                                         .matchedGeometryEffect(id: "bottom-pill", in: pill)
                                 }
@@ -30,7 +31,7 @@ struct BottomPanelView: View {
                 }
                 Spacer()
                 if store.runningID != nil {
-                    Aurora.Chip(text: "執行中", systemImage: "waveform", kind: .coral)
+                    Aurora.Chip(text: "執行中", systemImage: "waveform", kind: .coral, animated: true)
                         .padding(.trailing, 8)
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
@@ -52,6 +53,6 @@ struct BottomPanelView: View {
             .transition(.opacity)
             .animation(Motion.quick, value: store.bottomPanel)
         }
-        .cardSurface(radius: 16, opacity: 0.93)
+        .cardSurface(radius: appearance.cardRadius, opacity: appearance.cardOpacity)
     }
 }

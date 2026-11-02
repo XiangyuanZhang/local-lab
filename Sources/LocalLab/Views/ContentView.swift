@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var exporting = false
     @State private var appeared = false
     @AppStorage("editorFontSize") private var fontSize = 14.0
+    @EnvironmentObject private var appearance: AppearanceStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -58,7 +59,7 @@ struct ContentView: View {
                         else { EditorPane(store: store, fontSize: fontSize) }
                     }
                     .frame(minHeight: 230)
-                    .cardSurface(radius: 16, opacity: 0.9)
+                    .cardSurface(radius: appearance.cardRadius, opacity: appearance.cardOpacity)
                     .padding(.horizontal, 10)
                     .padding(.top, 10)
                     BottomPanelView(store: store).frame(minHeight: 180, idealHeight: 260)
@@ -99,7 +100,7 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 760, minHeight: 550)
-        .tint(Aurora.brand)
+        .tint(Aurora.accent)
         .background(WorkspaceBackdrop(store: background).ignoresSafeArea())
         .environment(\.workspaceHasBackground, background.image != nil)
         .toolbarBackground(.hidden, for: .windowToolbar)
@@ -117,37 +118,69 @@ struct ContentView: View {
         }
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared || reduceMotion ? 0 : 6)
+        .scaleEffect(appeared || reduceMotion ? 1 : 0.993)
         .animation(Motion.entrance, value: appeared)
         .onAppear { appeared = true }
         .animation(Motion.gentle, value: store.error)
         .animation(Motion.gentle, value: sidebarVisible)
     }
 
+    private var statusPhase: StatusOrb.Phase {
+        if store.isReady { return .ready }
+        if store.connecting { return .connecting }
+        return .offline
+    }
+
+    private var statusTint: Color {
+        switch statusPhase {
+        case .ready: return Aurora.mint
+        case .connecting: return Aurora.accent
+        case .offline: return Color.secondary.opacity(0.55)
+        }
+    }
+
     private var statusBar: some View {
         HStack(spacing: 8) {
-            PulseDot(active: store.isReady || store.connecting, tint: store.isReady ? Aurora.mint : Aurora.coral)
-            Text(store.status)
+            StatusOrb(phase: statusPhase, tint: statusTint)
+            Text(store.status).transition(.opacity)
             if store.connection != nil {
                 Text("·").foregroundStyle(.tertiary)
                 Text("App 專用核心").foregroundStyle(.secondary)
             }
             Spacer()
-            if let notice = store.syncNotice { Text(notice).foregroundStyle(.secondary).lineLimit(1) }
-            else if let date = store.lastSynced { Text("已同步 \(date.formatted(date: .omitted, time: .shortened))").foregroundStyle(.secondary) }
-            else { Text("⌘ Return 執行").foregroundStyle(.secondary) }
+            if store.runningID != nil {
+                Aurora.Chip(text: "執行中", systemImage: "waveform", kind: .coral, animated: true)
+                    .transition(.opacity.combined(with: .scale(scale: 0.92)))
+            } else if let notice = store.syncNotice {
+                Text(notice).foregroundStyle(.secondary).lineLimit(1).popOnChange(of: notice)
+            } else if let date = store.lastSynced {
+                Text("已同步 \(date.formatted(date: .omitted, time: .shortened))").foregroundStyle(.secondary)
+            } else {
+                Text("⌘ Return 執行").foregroundStyle(.secondary)
+            }
         }
         .font(.caption)
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(
             Capsule(style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(statusCapsuleFill)
+                .overlay(Capsule(style: .continuous).fill(Aurora.panelTint.opacity(appearance.panel == .solid ? 0 : 1)))
                 .overlay(Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.34), lineWidth: 0.8))
                 .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
         )
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .animation(Motion.gentle, value: store.status)
+        .animation(Motion.gentle, value: store.runningID != nil)
+    }
+
+    private var statusCapsuleFill: AnyShapeStyle {
+        switch appearance.panel {
+        case .frosted: return AnyShapeStyle(.ultraThinMaterial)
+        case .solid: return AnyShapeStyle(Color(nsColor: .windowBackgroundColor))
+        case .clear: return AnyShapeStyle(.ultraThinMaterial)
+        }
     }
 
     private func regionOverlay(sidebar: Bool) -> some View {
@@ -163,6 +196,7 @@ struct ContentView: View {
 struct EditorPane: View {
     @ObservedObject var store: WorkspaceStore
     let fontSize: Double
+    @EnvironmentObject private var appearance: AppearanceStore
     @State private var markdownMode = 0
     @Namespace private var pill
     private var isMarkdown: Bool { ["md", "markdown"].contains((store.selected?.name as NSString?)?.pathExtension.lowercased() ?? "") }
@@ -175,6 +209,7 @@ struct EditorPane: View {
                 if isMarkdown { markdownControl }
                 Aurora.Chip(text: languageLabel, kind: .brand)
                 Aurora.Chip(text: syncLabel, kind: store.selected?.isRemoteDirty == true ? .coral : .neutral)
+                    .popOnChange(of: syncLabel)
             }
             .font(.caption)
             .padding(.horizontal, 18)

@@ -2,8 +2,11 @@ import SwiftUI
 
 struct RemoteBrowserView: View {
     @ObservedObject var store: WorkspaceStore
+    @EnvironmentObject private var appearance: AppearanceStore
     @Environment(\.workspaceHasBackground) private var hasBackground
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedPath: String?
+    @State private var spin = false
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
@@ -34,9 +37,17 @@ struct RemoteBrowserView: View {
                 Button { store.createFolderPresented = true } label: { Image(systemName: "folder.badge.plus") }
                     .buttonStyle(PressableStyle(scale: 0.93))
                     .help("新增遠端資料夾").disabled(!store.isReady || store.fileBusy)
-                Button { Task { await store.refreshRemote() } } label: { Image(systemName: "arrow.clockwise") }
+                Button { Task { await store.refreshRemote() } } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .rotationEffect(.degrees(spin ? 360 : 0))
+                        .animation(store.fileBusy && !reduceMotion
+                                   ? .linear(duration: 0.9).repeatForever(autoreverses: false)
+                                   : nil,
+                                   value: spin)
+                }
                     .buttonStyle(PressableStyle(scale: 0.93))
                     .help("重新整理遠端目錄").disabled(!store.isReady || store.fileBusy)
+                    .onChange(of: store.fileBusy) { _, busy in spin = busy }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
@@ -81,6 +92,7 @@ struct RemoteBrowserView: View {
             }
         }
         .transition(.opacity)
+        .onAppear { spin = store.fileBusy }
     }
     private func formatted(_ value: String) -> String {
         let parser = ISO8601DateFormatter(); parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -119,7 +131,7 @@ struct RemoteNameSheet: View {
                         }
                         if success { dismiss() }
                     }
-                }.buttonStyle(.borderedProminent).tint(Aurora.brand).keyboardShortcut(.defaultAction).disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.fileBusy)
+                }.buttonStyle(.borderedProminent).tint(Aurora.accent).keyboardShortcut(.defaultAction).disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.fileBusy)
             }
         }.padding(26).frame(width: 420).onAppear { name = creatingFolder ? "" : action == .createFile ? "untitled.py" : store.selected?.name ?? "script.py"; store.error = nil }
     }

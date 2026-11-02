@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SidebarView: View {
     @ObservedObject var store: WorkspaceStore
+    @EnvironmentObject private var appearance: AppearanceStore
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,7 +24,7 @@ struct SidebarView: View {
                 }
             }
             .listStyle(.inset)
-            .tint(Aurora.brand)
+            .tint(Aurora.accent)
             .padding(.top, 8)
             .scrollContentBackground(.hidden)
             .padding(.horizontal, 6)
@@ -31,11 +32,7 @@ struct SidebarView: View {
             newDraftButton
             footer
         }
-        .background(
-            Rectangle()
-                .fill(.regularMaterial)
-                .overlay(Aurora.panelTint)
-        )
+        .background(PanelBackdrop(finish: appearance.panel))
         .overlay(alignment: .trailing) {
             Rectangle()
                 .fill(Color.white.opacity(0.22))
@@ -57,11 +54,12 @@ struct SidebarView: View {
             .padding(.vertical, 7)
             .background(
                 Capsule(style: .continuous)
-                    .fill(Aurora.brand.opacity(0.14))
-                    .overlay(Capsule(style: .continuous).strokeBorder(Aurora.brand.opacity(0.22), lineWidth: 0.7))
+                    .fill(Aurora.accent.opacity(0.14))
+                    .overlay(Capsule(style: .continuous).strokeBorder(Aurora.accent.opacity(0.24), lineWidth: 0.7))
             )
         }
         .buttonStyle(PressableStyle(scale: 0.98))
+        .hoverLift(scale: 1.012, shadowRadius: 9)
         .help("新增 Python 草稿（⌘ N）")
         .padding(.horizontal, 12)
         .padding(.bottom, 10)
@@ -84,7 +82,8 @@ struct SidebarView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .glassPanel(radius: 14)
+        .glassPanel(radius: max(10, appearance.panelRadius - 4))
+        .hoverLift(scale: 1.006, shadowRadius: 12)
         .padding(.horizontal, 10)
         .padding(.bottom, 10)
         .animation(Motion.gentle, value: store.isReady)

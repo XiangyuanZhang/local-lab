@@ -50,9 +50,14 @@ enum Aurora {
 
     // MARK: Gradients
 
-    /// Title / wordmark gradient: blush → periwinkle → sky.
+    /// Accent currently chosen in Settings › 外觀.
+    static var accent: Color {
+        AccentChoice(rawValue: UserDefaults.standard.string(forKey: AppearanceKeys.accent) ?? "")?.color ?? brand
+    }
+
+    /// Title / wordmark gradient: blush → accent → sky.
     static var signature: LinearGradient {
-        LinearGradient(colors: [coral, brand, azure], startPoint: .leading, endPoint: .trailing)
+        LinearGradient(colors: [coral, accent, azure], startPoint: .leading, endPoint: .trailing)
     }
 
     /// Wordmark gradient, matching the reference headlines (pink → blue).
@@ -122,11 +127,16 @@ enum Aurora {
         var text: String
         var systemImage: String?
         var kind: Kind = .neutral
+        /// Breathing symbol, used while the program is running.
+        var animated: Bool = false
+
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        @State private var dimmed = false
 
         private var tint: Color {
             switch kind {
             case .neutral: return Color.secondary
-            case .brand: return Aurora.brand
+            case .brand: return Aurora.accent
             case .coral: return Aurora.coral
             case .mint: return Aurora.mint
             }
@@ -134,7 +144,15 @@ enum Aurora {
 
         var body: some View {
             HStack(spacing: 5) {
-                if let systemImage { Image(systemName: systemImage).font(.system(size: 10, weight: .semibold)) }
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 10, weight: .semibold))
+                        .opacity(animated && dimmed ? 0.4 : 1)
+                        .animation(animated && !reduceMotion
+                                   ? .easeInOut(duration: 0.85).repeatForever(autoreverses: true)
+                                   : nil,
+                                   value: dimmed)
+                }
                 Text(text)
             }
             .font(.caption.weight(.medium))
@@ -143,6 +161,8 @@ enum Aurora {
             .padding(.vertical, 4)
             .background(Capsule(style: .continuous).fill(tint.opacity(0.14)))
             .overlay(Capsule(style: .continuous).strokeBorder(tint.opacity(0.22), lineWidth: 0.6))
+            .onAppear { dimmed = animated }
+            .onChange(of: animated) { _, on in dimmed = on }
         }
     }
 }
@@ -151,13 +171,16 @@ enum Aurora {
 
 enum Motion {
     /// Fast, precise feedback for taps, tabs and selection.
-    static let snappy = Animation.spring(response: 0.3, dampingFraction: 0.82)
+    static var snappy: Animation { Animation.spring(response: 0.3 * pace, dampingFraction: 0.82) }
     /// Softer transitions for panes, banners and sheets.
-    static let gentle = Animation.spring(response: 0.48, dampingFraction: 0.88)
+    static var gentle: Animation { Animation.spring(response: 0.48 * pace, dampingFraction: 0.88) }
     /// Short cross-fades where a spring would feel heavy.
-    static let quick = Animation.easeOut(duration: 0.16)
+    static var quick: Animation { Animation.easeOut(duration: 0.16 * pace) }
     /// Entry of the whole workspace.
-    static let entrance = Animation.spring(response: 0.6, dampingFraction: 0.9)
+    static var entrance: Animation { Animation.spring(response: 0.6 * pace, dampingFraction: 0.9) }
+
+    /// Duration multiplier chosen in Settings › 外觀 › 動效節奏.
+    private static var pace: Double { MotionLevel.current.multiplier }
 }
 
 // MARK: - Reusable effects
@@ -250,7 +273,7 @@ struct SlidingPill<ID: Hashable, Label: View>: View {
                         if id == selection {
                             Capsule(style: .continuous)
                                 .fill(.white.opacity(0.72))
-                                .overlay(Capsule(style: .continuous).strokeBorder(Aurora.brand.opacity(0.28), lineWidth: 0.8))
+                                .overlay(Capsule(style: .continuous).strokeBorder(Aurora.accent.opacity(0.32), lineWidth: 0.8))
                                 .shadow(color: Color.black.opacity(0.10), radius: 5, x: 0, y: 2)
                                 .matchedGeometryEffect(id: "pill", in: namespace)
                         }
@@ -287,7 +310,7 @@ struct EmptyStateCard: View {
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .buttonStyle(.borderedProminent)
-                    .tint(Aurora.brand)
+                    .tint(Aurora.accent)
                     .buttonStyle(PressableStyle())
                     .padding(.top, 2)
             }
@@ -301,6 +324,81 @@ struct EmptyStateCard: View {
         )
         .padding(20)
         .transition(.opacity.combined(with: .scale(scale: 0.98)))
+    }
+}
+
+
+/// Expanding halo used to emphasise an ongoing activity (run, connect, sync).
+struct PulseRing: View {
+    var active: Bool
+    var tint: Color
+    var lineWidth: CGFloat = 1.5
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var expanded = false
+
+    var body: some View {
+        Circle()
+            .strokeBorder(tint.opacity(active ? 0.55 : 0), lineWidth: lineWidth)
+            .scaleEffect(expanded ? 1.65 : 0.85)
+            .opacity(expanded ? 0 : 1)
+            .animation(active && !reduceMotion
+                       ? .easeOut(duration: 1.5).repeatForever(autoreverses: false)
+                       : nil,
+                       value: expanded)
+            .onAppear { expanded = active }
+            .onChange(of: active) { _, on in expanded = on }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Status indicator: a breathing dot when connected, a spinning arc while
+/// connecting and a quiet dot when offline.
+struct StatusOrb: View {
+    enum Phase { case offline, connecting, ready }
+
+    var phase: Phase
+    var tint: Color
+    var size: CGFloat = 8
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var spinning = false
+
+    var body: some View {
+        ZStack {
+            if phase == .connecting {
+                Circle()
+                    .trim(from: 0, to: 0.32)
+                    .stroke(tint.opacity(0.85), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+                    .frame(width: size * 1.9, height: size * 1.9)
+                    .rotationEffect(.degrees(spinning ? 360 : 0))
+                    .animation(reduceMotion ? nil : .linear(duration: 1.1).repeatForever(autoreverses: false),
+                               value: spinning)
+            }
+            PulseDot(active: phase == .ready, tint: tint, size: size)
+        }
+        .frame(width: size * 2.2, height: size * 2.2)
+        .onAppear { spinning = phase == .connecting }
+        .onChange(of: phase) { _, new in spinning = new == .connecting }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Small scale "pop" whenever the observed value changes.
+struct PopOnChange<Value: Equatable>: ViewModifier {
+    var value: Value
+    var scale: CGFloat = 1.06
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var popped = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(popped && !reduceMotion ? scale : 1)
+            .animation(Motion.quick, value: popped)
+            .onChange(of: value) { _, _ in
+                popped = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) { popped = false }
+            }
     }
 }
 
@@ -318,5 +416,10 @@ extension View {
     /// Hover lift for interactive cards.
     func hoverLift(scale: CGFloat = 1.004, shadowRadius: CGFloat = 10) -> some View {
         modifier(HoverLift(scale: scale, shadowRadius: shadowRadius))
+    }
+
+    /// Emphasises the view briefly whenever `value` changes.
+    func popOnChange<Value: Equatable>(of value: Value, scale: CGFloat = 1.06) -> some View {
+        modifier(PopOnChange(value: value, scale: scale))
     }
 }
