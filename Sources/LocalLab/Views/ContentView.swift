@@ -31,7 +31,7 @@ struct ContentView: View {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Aurora.coral)
                         Text(error).font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                        if error.contains("OSStatus"), store.hasSavedToken {
+                        if error.contains("OSStatus") {
                             Button("修復授權") { Task { _ = await store.repairKeychainAccess() } }
                                 .buttonStyle(PressableStyle(scale: 0.96))
                                 .disabled(store.repairingKeychain || store.busy)
