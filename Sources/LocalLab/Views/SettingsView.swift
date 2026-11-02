@@ -5,10 +5,14 @@ struct SettingsView: View {
     @AppStorage("localPythonExecutable") private var python = ""
     @AppStorage("localWorkspace") private var workspace = ""
     @AppStorage("editorFontSize") private var fontSize = 14.0
+    @AppStorage("auroraMotion") private var auroraMotion = true
     var body: some View {
         Form {
-            Section("背景") {
+            Section("背景與動效") {
                 Button("更换背景…") { store.showBackgroundEditor = true }
+                Toggle("極光背景緩慢流動", isOn: $auroraMotion)
+                Text("未設定背景圖片時顯示極光背景。系統開啟「減少動態效果」或視窗不在前景時會自動停止流動。")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("編輯器") {
                 Stepper("字體大小：\(Int(fontSize)) pt", value: $fontSize, in: 11...24)

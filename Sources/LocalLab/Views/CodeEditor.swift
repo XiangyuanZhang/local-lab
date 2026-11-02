@@ -11,6 +11,10 @@ struct CodeEditor: NSViewRepresentable {
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true; scroll.hasHorizontalScroller = true
         scroll.autohidesScrollers = true; scroll.borderType = .noBorder
+        scroll.wantsLayer = true
+        scroll.layer?.cornerRadius = 12
+        scroll.layer?.cornerCurve = .continuous
+        scroll.layer?.masksToBounds = true
         let editor = PythonTextView()
         editor.isRichText = false; editor.allowsUndo = true
         editor.isAutomaticQuoteSubstitutionEnabled = false
@@ -21,7 +25,7 @@ struct CodeEditor: NSViewRepresentable {
         editor.isAutomaticLinkDetectionEnabled = false
         editor.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
         editor.textColor = .labelColor; editor.backgroundColor = .textBackgroundColor
-        editor.textContainerInset = NSSize(width: 22, height: 20)
+        editor.textContainerInset = NSSize(width: 22, height: 18)
         editor.isVerticallyResizable = true; editor.isHorizontallyResizable = false
         editor.autoresizingMask = [.width]
         editor.textContainer?.widthTracksTextView = true
@@ -39,6 +43,7 @@ struct CodeEditor: NSViewRepresentable {
         if editor.string != text { editor.string = text; editor.undoManager?.removeAllActions(); context.coordinator.highlight(editor) }
         if editor.font?.pointSize != CGFloat(fontSize) { editor.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular) }
     }
+
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: CodeEditor
         init(_ parent: CodeEditor) { self.parent = parent }
@@ -51,19 +56,32 @@ struct CodeEditor: NSViewRepresentable {
             let all = NSRange(location: 0, length: (editor.string as NSString).length)
             storage.beginEditing()
             storage.addAttribute(.foregroundColor, value: NSColor.labelColor, range: all)
-            let patterns: [(String, NSColor)] = [
-                ("\\b(def|class|import|from|for|in|if|else|elif|return|while|try|except|with|as|True|False|None|print)\\b", .systemPurple),
-                ("('([^'\\\\]|\\\\.)*'|\"([^\"\\\\]|\\\\.)*\")", .systemRed),
-                ("(?m)#.*$", .secondaryLabelColor)
-            ]
-            for (pattern, color) in parent.python ? patterns : [] {
-                if let regex = try? NSRegularExpression(pattern: pattern) {
-                    for match in regex.matches(in: editor.string, range: all) { storage.addAttribute(.foregroundColor, value: color, range: match.range) }
+            for rule in (parent.python ? Self.rules : []) {
+                for match in rule.regex.matches(in: editor.string, range: all) {
+                    storage.addAttribute(.foregroundColor, value: rule.color, range: match.range)
                 }
             }
             storage.endEditing()
             editor.typingAttributes[.foregroundColor] = NSColor.labelColor
         }
+
+        /// Compiled once and reused: recolouring on every keystroke no longer
+        /// pays for three `NSRegularExpression` compilations.
+        private struct Rule {
+            let regex: NSRegularExpression
+            let color: NSColor
+        }
+
+        private static let rules: [Rule] = {
+            let specs: [(String, NSColor)] = [
+                ("\\b(def|class|import|from|for|in|if|else|elif|return|while|try|except|with|as|True|False|None|print)\\b", .systemPurple),
+                ("('([^'\\\\]|\\\\.)*'|\"([^\"\\\\]|\\\\.)*\")", .systemRed),
+                ("(?m)#.*$", .secondaryLabelColor)
+            ]
+            return specs.compactMap { pattern, color in
+                (try? NSRegularExpression(pattern: pattern)).map { Rule(regex: $0, color: color) }
+            }
+        }()
     }
 }
 final class PythonTextView: NSTextView {

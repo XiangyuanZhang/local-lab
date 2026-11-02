@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SidebarView: View {
     @ObservedObject var store: WorkspaceStore
+
     var body: some View {
         VStack(spacing: 0) {
             List(selection: $store.selection) {
@@ -11,7 +12,7 @@ struct SidebarView: View {
                     ForEach(store.uncataloguedRemoteDrafts) { draft in
                         HStack {
                             Label(draft.name, systemImage: "doc.text")
-                            if draft.isRemoteDirty { Image(systemName: "circle.fill").font(.system(size: 5)).foregroundStyle(.orange).accessibilityLabel("有未儲存修改") }
+                            if draft.isRemoteDirty { DirtyDot() }
                         }.tag(draft.id)
                     }
                 }
@@ -20,25 +21,86 @@ struct SidebarView: View {
                         Label(draft.name, systemImage: "doc.text").tag(draft.id)
                     }
                 }
-            }.listStyle(.sidebar).scrollContentBackground(.hidden)
-                .padding(.horizontal, 8)
-            HStack {
-                Button { store.newScript() } label: { Label("新增草稿", systemImage: "plus") }.buttonStyle(.plain).help("新增 Python 草稿（⌘ N）")
-                Spacer()
-            }.padding(.horizontal, 18).padding(.vertical, 14)
-            Divider().padding(.horizontal, 14)
-            VStack(alignment: .leading, spacing: 8) {
-                Label("TUM Python", systemImage: "server.rack").font(.callout.weight(.medium))
-                Text("go97lep · lecture.cs.tum.de").font(.caption).foregroundStyle(.secondary)
-                HStack(spacing: 6) {
-                    Circle().fill(store.isReady ? .green : .secondary.opacity(0.5)).frame(width: 6, height: 6)
-                    Text(store.status).font(.caption).foregroundStyle(.secondary)
-                }
-            }.frame(maxWidth: .infinity, alignment: .leading).padding(18)
+            }
+            .listStyle(.inset)
+            .tint(Aurora.brand)
+            .padding(.top, 8)
+            .scrollContentBackground(.hidden)
+            .padding(.horizontal, 6)
+
+            newDraftButton
+            footer
         }
+        .background(
+            Rectangle()
+                .fill(.regularMaterial)
+                .overlay(Aurora.panelTint)
+        )
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Color.white.opacity(0.22))
+                .frame(width: 0.5)
+                .ignoresSafeArea()
+        }
+    }
+
+    private var newDraftButton: some View {
+        Button { store.newScript() } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                Text("新增草稿")
+                Spacer()
+                Text("⌘N").font(.caption2.monospaced()).foregroundStyle(.tertiary)
+            }
+            .font(.callout.weight(.medium))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Aurora.brand.opacity(0.14))
+                    .overlay(Capsule(style: .continuous).strokeBorder(Aurora.brand.opacity(0.22), lineWidth: 0.7))
+            )
+        }
+        .buttonStyle(PressableStyle(scale: 0.98))
+        .help("新增 Python 草稿（⌘ N）")
+        .padding(.horizontal, 12)
+        .padding(.bottom, 10)
+    }
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 8) {
+                Label("TUM Python", systemImage: "server.rack").font(.callout.weight(.medium))
+                Spacer()
+                PulseDot(active: store.isReady, tint: store.isReady ? Aurora.mint : Color.secondary.opacity(0.6), size: 6)
+            }
+            Text("go97lep · lecture.cs.tum.de")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(store.status)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .glassPanel(radius: 14)
+        .padding(.horizontal, 10)
+        .padding(.bottom, 10)
+        .animation(Motion.gentle, value: store.isReady)
     }
 }
 
+/// Small orange dot marking a draft with unsaved remote changes.
+struct DirtyDot: View {
+    var body: some View {
+        Circle()
+            .fill(Aurora.coral)
+            .frame(width: 6, height: 6)
+            .shadow(color: Aurora.coral.opacity(0.6), radius: 3)
+            .accessibilityLabel("有未儲存修改")
+    }
+}
 
 struct RemoteSidebarRow: View {
     @ObservedObject var store: WorkspaceStore
@@ -64,7 +126,7 @@ struct RemoteSidebarRow: View {
             HStack {
                 Label(entry.name, systemImage: entry.symbol)
                 if store.drafts.first(where: { $0.remotePath == entry.path })?.isRemoteDirty == true {
-                    Image(systemName: "circle.fill").font(.system(size: 5)).foregroundStyle(.orange).accessibilityLabel("有未儲存修改")
+                    DirtyDot()
                 }
             }.tag(store.remoteSelectionID(entry)).help(entry.path)
         }

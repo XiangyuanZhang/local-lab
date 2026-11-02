@@ -8,12 +8,12 @@
 
 ## 倉庫結構
 
-- `Sources/LocalLab/` — App 程式碼（App／Models／Services／Stores／Views）
+- `Sources/LocalLab/` — App 程式碼（App／Models／Services／Stores／Views／Design）
 - `Tests/` — 原生 async 斷言程式與本機 Jupyter 模擬器
 - `Support/ShellBridge.c` — 本機 PTY 橋接元件
 - `script/` — 建置、簽署、測試腳本
 - `Resources/` — 圖示、Markdown 渲染器與打包的 CPython 3.10.12
-- `docs/` — 專案說明、測試報告、事故檢查與版本清單
+- `docs/` — 專案說明、測試報告、事故檢查與版本清單；`docs/design/` 收錄視覺與動效規範
 
 ## 使用
 
@@ -24,6 +24,10 @@
 5. 透過工具列選單「關閉專用核心」，或正常結束 App，以清理核心。
 
 連線目的地固定為 `https://lecture.cs.tum.de:9000/user/go97lep/api`。需保持可存取校內主機的網路路徑。token 到期後需更新鑰匙圈中的 token；本機保存不會延長伺服器端有效期。設定可關閉自動連線或移除已保存 token。
+
+## 外觀與動效
+
+介面沿用參考設計的極光漸層與玻璃質感：未設定背景圖片時顯示會緩慢流動的極光底，卡片為大圓角、細白邊與柔和陰影，選中項目以滑動膠囊表示。所有動效尊重系統「減少動態效果」，也可在設定中關閉極光流動；視窗不在前景時自動停止漂移。完整令牌、曲線與逐項動效對照見 `docs/design/motion.md`。
 
 ## 功能
 
