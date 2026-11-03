@@ -1,3 +1,7 @@
+# 1.1.5
+
+- 修复学校 Jupyter 服务拒绝 Notebook format 参数造成 HTTP 400 的兼容问题。
+
 # Changelog
 
 ## 1.1.4 — 2026-11-03

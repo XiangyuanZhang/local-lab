@@ -48,6 +48,7 @@ async def contents(r):
  path=r.match_info.get('path','')
  if r.method=='GET':
   if path and path not in files:return web.json_response({'message':'Not found'},status=404)
+  if path and files[path]['type']=='notebook' and 'format' in r.query:return web.json_response({'message':'Notebook format must be omitted'},status=400)
   return web.json_response(filemodel(path,r.query.get('content')!='0'))
  if r.method=='DELETE':
   if path not in files:return web.Response(status=404)

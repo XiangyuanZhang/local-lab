@@ -257,7 +257,7 @@ actor JupyterClient: KernelService, RemoteFileService {
         guard ["file", "notebook"].contains(entry.type) else { throw LabError.message("此檔案請在 JupyterLab 開啟；App 編輯器目前支援文字檔。") }
         let limit = entry.type == "notebook" ? 8_388_608 : 1_048_576
         guard (entry.size ?? 0) <= limit else { throw LabError.message("此檔案超過 App 預覽大小限制。") }
-        let (contentStatus, data) = try await requestHTTP("GET", "/contents/" + path, allowed: [200, 404], query: [URLQueryItem(name: "format", value: entry.type == "notebook" ? "json" : "text")])
+        let (contentStatus, data) = try await requestHTTP("GET", "/contents/" + path, allowed: [200, 404], query: entry.type == "notebook" ? [] : [URLQueryItem(name: "format", value: "text")])
         guard contentStatus != 404 else { throw RemoteFileMissing(path: path) }
         guard data.count <= limit + 65_536, let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw LabError.message("遠端檔案格式不正確或超過預覽限制。")
