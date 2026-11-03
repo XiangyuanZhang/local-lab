@@ -50,7 +50,7 @@ struct MarkdownPreview: NSViewRepresentable {
             let markdown = text; let transparent = hasBackground
             guard lastMarkdown != markdown || lastTransparency != transparent else { return }
             lastMarkdown = markdown; lastTransparency = transparent
-            Task { [weak self] in _ = try? await web.callAsyncJavaScript("document.body.style.background = transparent ? 'transparent' : ''; return window.renderMarkdown(markdown)", arguments: ["markdown": markdown, "transparent": transparent], in: nil, contentWorld: .page); self?.measure(web) }
+            Task { [weak self] in _ = try? await web.callAsyncJavaScript("document.body.style.background = transparent ? 'transparent' : ''; const result = window.renderMarkdown(markdown); await Promise.all(Array.from(document.images).map(img => img.decode().catch(() => {}))); return result", arguments: ["markdown": markdown, "transparent": transparent], in: nil, contentWorld: .page); self?.measure(web) }
         }
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url {
