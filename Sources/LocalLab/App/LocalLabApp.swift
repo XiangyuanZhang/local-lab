@@ -57,6 +57,10 @@ final class LabDelegate: NSObject, NSApplicationDelegate {
     weak var ai: AIReviewStore?
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        // Explicitly refresh the running Dock tile after an in-place app update.
+        if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"), let icon = NSImage(contentsOf: url) {
+            NSApp.applicationIconImage = icon; NSApp.dockTile.display()
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }

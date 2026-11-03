@@ -419,7 +419,7 @@ struct EditorPane: View {
                     .padding(.horizontal, 20).padding(.top, 8)
             }
             if isNotebook {
-                NotebookEditor(text: Binding(get: { store.selected?.code ?? "" }, set: { store.updateCode($0) }), canRun: store.canRun, isRunning: store.runningID != nil, runThrough: { store.run(notebookThrough: $0) }, clearOutputs: { store.clearNotebookOutputs() })
+                NotebookEditor(text: Binding(get: { store.selected?.code ?? "" }, set: { store.updateCode($0) }), store: store)
                     .id(store.selected?.id)
             } else if isMarkdown && markdownMode == 0 {
                 MarkdownPreview(text: store.selected?.code ?? "")

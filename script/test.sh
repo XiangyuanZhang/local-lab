@@ -13,6 +13,7 @@ xcrun swiftc -parse-as-library -swift-version 5 -target "$ARCH-apple-macosx14.0"
   "$ROOT_DIR/Sources/LocalLab/Services/TokenVault.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/BuiltinCredential.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/LocalPythonRunner.swift" \
+  "$ROOT_DIR/Sources/LocalLab/Services/LocalNotebookProcess.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/ShellTerminal.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/MarkdownHTML.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/NotebookMarkdown.swift" \
@@ -24,6 +25,7 @@ xcrun swiftc -parse-as-library -swift-version 5 -target "$ARCH-apple-macosx14.0"
   "$ROOT_DIR/Sources/LocalLab/Services/AppLiveVerifier.swift" \
   "$ROOT_DIR/Sources/LocalLab/Stores/WorkspaceStore.swift" \
   "$ROOT_DIR/Sources/LocalLab/Stores/RemoteSync.swift" \
+  "$ROOT_DIR/Sources/LocalLab/Stores/NotebookExecution.swift" \
   "$ROOT_DIR/Sources/LocalLab/Stores/TerminalStore.swift" \
   "$ROOT_DIR/Tests/Checks.swift" -o "$ROOT_DIR/.build/LocalLabChecks"
 "$ROOT_DIR/.build/LocalLabChecks"

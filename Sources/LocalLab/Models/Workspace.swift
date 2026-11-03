@@ -20,6 +20,7 @@ enum KernelEvent: Sendable {
     case text(String, isError: Bool)
     case image(Data)
     case clear
+    case executionCount(Int)
     case completed(success: Bool)
 }
 struct OutputItem: Identifiable {

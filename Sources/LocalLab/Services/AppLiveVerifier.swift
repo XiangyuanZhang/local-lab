@@ -7,6 +7,7 @@ private actor Collected {
         case .text(let text, let error): if error { stderr += text } else { stdout += text }
         case .image(let data): image = data
         case .completed(let success): complete = success
+        case .executionCount: break
         case .clear: stdout = ""; stderr = ""; image = nil
         }
     }

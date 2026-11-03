@@ -8,6 +8,10 @@ final class WorkspaceStore: ObservableObject {
     @Published var connecting = false
     @Published var closing = false
     @Published var runningID: UUID?
+    @Published var notebookSelection: [UUID: Int] = [:]
+    @Published var notebookEditing: [UUID: Int] = [:]
+    @Published var notebookRecentCode: [UUID: Int] = [:]
+    @Published var runningNotebookCell: Int?
     @Published var outputs: [UUID: [OutputItem]] = [:]
     @Published var runStates: [UUID: String] = [:]
     @Published var durations: [UUID: Double] = [:]
@@ -44,10 +48,10 @@ final class WorkspaceStore: ObservableObject {
     let localPython: LocalPythonService
     let service: KernelService
     private let library: DraftLibrary
-    private var runTask: Task<Void, Never>?
+    var runTask: Task<Void, Never>?
     private var saveTask: Task<Void, Never>?
-    private var outputSize = 0
-    private var outputTruncated = false
+    var outputSize = 0
+    var outputTruncated = false
 
     init(service: KernelService, library: DraftLibrary = DraftLibrary(), vault: TokenVault? = nil, localPython: LocalPythonService = LocalPythonRunner()) {
         self.localPython = localPython; self.service = service; self.library = library; self.remoteFiles = service as? RemoteFileService; self.vault = vault
@@ -112,7 +116,14 @@ final class WorkspaceStore: ObservableObject {
     }
     var selected: ScriptDraft? { drafts.first(where: { $0.id == selection }) }
     var busy: Bool { connecting || closing }
-    var canRun: Bool { (selected.map { $0.name.lowercased().hasSuffix(".py") || $0.name.lowercased().hasSuffix(".ipynb") } ?? false) && isReady && !busy && runningID == nil && !(selected?.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) }
+    var canRun: Bool {
+        guard !busy, runningID == nil, let draft = selected else { return false }
+        if draft.name.lowercased().hasSuffix(".ipynb"), let doc = try? NotebookDocument(draft.code), !doc.cells.isEmpty {
+            let index = max(0, min(notebookSelection[draft.id] ?? 0, doc.cells.count - 1))
+            return doc.cells[index]["cell_type"] as? String != "code" || isReady
+        }
+        return draft.name.lowercased().hasSuffix(".py") && isReady && !draft.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
     var status: String {
         if connecting { return "正在連線…" }
         if closing { return "正在關閉核心…" }
@@ -152,6 +163,7 @@ final class WorkspaceStore: ObservableObject {
         connecting = true; error = nil; isReady = false
         defer { connecting = false }
         do {
+            await localPython.interrupt()
             connection = try await service.connect(token: token); isReady = true
             await refreshRemote()
             startSyncing()
@@ -182,7 +194,12 @@ final class WorkspaceStore: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
     func run(notebookThrough: Int? = nil) {
-        guard canRun, let draft = selected else { return }
+        guard let draft = selected else { return }
+        if draft.name.lowercased().hasSuffix(".ipynb") {
+            if let last = notebookThrough { runNotebook(through: last) } else { runCurrentNotebookCell() }
+            return
+        }
+        guard canRun else { return }
         let executable: String
         do { executable = draft.name.lowercased().hasSuffix(".ipynb") ? try NotebookDocument(draft.code).pythonCode(through: notebookThrough) : draft.code }
         catch { self.error = error.localizedDescription; return }
@@ -201,31 +218,8 @@ final class WorkspaceStore: ObservableObject {
                 guard localOK else { runStates[draft.id] = "本機錯誤 · 未送出"; durations[draft.id] = Date().timeIntervalSince(start); runningID = nil; return }
                 runStates[draft.id] = "伺服器覆核中"
                 consume(.text("\n本機成功 → 伺服器覆核\n", isError: false), id: draft.id)
-                if draft.name.lowercased().hasSuffix(".ipynb") {
-                    var notebook = try NotebookDocument(draft.code)
-                    var baseline = draft.code
-                    for cell in try notebook.pythonCells(through: notebookThrough) {
-                        try Task.checkCancellation()
-                        runStates[draft.id] = "伺服器覆核中"
-                        consume(.text("\n單元格 \(cell.index + 1)\n", isError: false), id: draft.id)
-                        let capture = NotebookRunOutput()
-                        try await service.execute(code: cell.code) { [weak self] event in
-                            await capture.append(event)
-                            await self?.consume(event, id: draft.id)
-                        }
-                        let result = await capture.result()
-                        notebook.setOutputs(at: cell.index, outputs: result.outputs)
-                        // Never overwrite edits or a different document selected during execution.
-                        if let index = drafts.firstIndex(where: { $0.id == draft.id }), drafts[index].code == baseline {
-                            let updated = try notebook.serialized()
-                            drafts[index].code = updated; baseline = updated; persist()
-                        }
-                        if !result.success { break }
-                    }
-                } else {
-                    try await service.execute(code: executable) { [weak self] event in
-                        await self?.consume(event, id: draft.id)
-                    }
+                try await service.execute(code: executable) { [weak self] event in
+                    await self?.consume(event, id: draft.id)
                 }
             } catch {
                 if !Task.isCancelled && !closing {
@@ -237,10 +231,11 @@ final class WorkspaceStore: ObservableObject {
             if runningID == draft.id { runningID = nil }
         }
     }
-    private func consume(_ event: KernelEvent, id: UUID) {
+    func consume(_ event: KernelEvent, id: UUID) {
         guard !closing else { return }
         switch event {
         case .completed(let success): runStates[id] = success ? "本機與伺服器通過" : "伺服器覆核失敗"
+        case .executionCount: break
         case .clear: outputs[id] = []; outputSize = 0; outputTruncated = false
         case .text(let text, let isError):
             guard outputSize < 1_048_576 else { truncate(id); return }

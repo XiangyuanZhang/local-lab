@@ -7,9 +7,10 @@ private final class FakeKernel: KernelService {
     var cleaned: [String] = []
     var failCleanup = false
     var executeCount = 0
+    var executedCode: [String] = []
     func connect(token: String) async throws -> ConnectionInfo { ConnectionInfo(kernel: KernelInfo(id: "app-owned", name: "python3"), existingCount: 2, displayName: "Python 3", pythonVersion: "3.10.12") }
     func execute(code: String, onEvent: @escaping @Sendable (KernelEvent) async -> Void) async throws {
-        executeCount += 1
+        executeCount += 1; executedCode.append(code)
         await onEvent(.text("Hello from local API\n", isError: false))
         await onEvent(.completed(success: true))
     }
@@ -92,10 +93,10 @@ struct Checks {
             runnable.append(kind: "code"); runnable.updateSource(at: 2, text: "print(x + 2)")
             let notebookDraft = ScriptDraft(name: "check.ipynb", code: try runnable.serialized())
             store.drafts.append(notebookDraft); store.selection = notebookDraft.id
-            await localGate.setSuccess(false); store.run()
+            await localGate.setSuccess(false); store.runAllNotebook()
             for _ in 0..<100 { if store.runningID == nil { break }; try await Task.sleep(nanoseconds: 1_000_000) }
             try check(fake.executeCount == 1, "Notebook bypassed local failure gate")
-            await localGate.setSuccess(true); store.run()
+            await localGate.setSuccess(true); store.runAllNotebook()
             for _ in 0..<100 { if store.runningID == nil { break }; try await Task.sleep(nanoseconds: 1_000_000) }
             let ranNotebook = try NotebookDocument(store.selected!.code)
             try check(fake.executeCount == 3 && (ranNotebook.cells[0]["outputs"] as? [Any])?.count == 1 && (ranNotebook.cells[2]["outputs"] as? [Any])?.count == 1, "Notebook cell execution or captured outputs failed")
@@ -113,6 +114,29 @@ struct Checks {
             try check(store.drafts.count == previousCount + 2 && store.selected!.name != firstPractice && store.selected!.remotePath == nil && (try NotebookDocument(store.selected!.code)).cells.count == 2, "New practice Notebook failed to remain local or avoid name collisions")
             try check(try runnable.pythonCode(through: 0) == "x = 40", "Run-through preflight included later code")
             passed.append("notebook_learning_new_clear_and_run_through")
+            var selective = try NotebookDocument(NotebookDocument.empty)
+            selective.append(kind: "code"); selective.updateSource(at: 0, text: "raise TypeError('intentional teaching example')")
+            selective.append(kind: "code"); selective.updateSource(at: 1, text: "x = 42")
+            selective.append(kind: "markdown"); selective.updateSource(at: 2, text: "# Render me")
+            let selectedDraft = ScriptDraft(name: "selection.ipynb", code: try selective.serialized())
+            store.drafts.append(selectedDraft); store.selection = selectedDraft.id
+            store.selectNotebookCell(1, editing: true); let countBefore = fake.executeCount
+            store.run()
+            for _ in 0..<100 { if store.runningID == nil { break }; try await Task.sleep(nanoseconds: 1_000_000) }
+            try check(fake.executeCount == countBefore + 1 && fake.executedCode.last == "x = 42", "Current cell run executed an earlier intentional error")
+            store.selectNotebookCell(2, editing: true); store.run()
+            try check(fake.executeCount == countBefore + 1 && store.notebookEditing[selectedDraft.id] == nil && store.reviewNotebookCellIndex == 1, "Markdown run did not render locally or lost recent code review target")
+            passed.append("current_cell_only_markdown_render_and_recent_AI_target")
+            let worker = try LocalNotebookProcess(python: URL(fileURLWithPath: "/usr/bin/python3"), directory: root)
+            defer { worker.stop() }
+            _ = try await worker.execute(code: "values = []", name: "Cell 1")
+            let firstCell = try await worker.execute(code: "values.append(7)\nlen(values)", name: "Cell 2")
+            let secondCell = try await worker.execute(code: "values.append(8)\nlen(values)", name: "Cell 2")
+            let badCell = try await worker.execute(code: "'text' + 1", name: "Cell 3")
+            let recoveredCell = try await worker.execute(code: "len(values)", name: "Cell 4")
+            try check(firstCell.stdout == "1\n" && secondCell.stdout == "2\n" && badCell.status == 1 && badCell.stderr.contains("TypeError") && recoveredCell.stdout == "2\n", "Local notebook variables, rerun semantics, display values or error recovery failed")
+            worker.stop()
+            passed.append("persistent_local_notebook_namespace_display_and_error_recovery")
             let cleaned = await store.disconnect()
             try check(cleaned && fake.cleaned == ["app-owned"] && store.connection == nil, "Wrong kernel cleanup")
             passed.append("execution_state_and_owned_kernel_cleanup")

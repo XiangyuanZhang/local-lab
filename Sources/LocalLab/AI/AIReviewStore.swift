@@ -49,15 +49,17 @@ final class AIReviewStore: ObservableObject {
         try repository.removeKey(for: endpoint)
         refreshKeyState(); notice = "已移除此接口的 API Key"
     }
-    func start(draft: ScriptDraft?) {
+    func start(draft: ScriptDraft?, notebookCellIndex: Int? = nil) {
         guard !isRunning else { return }
         guard let draft, !draft.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { error = AIReviewError.emptyCode.localizedDescription; return }
+        let snapshot = AIReviewSnapshot(draft, cellIndex: notebookCellIndex)
+        guard !snapshot.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { error = AIReviewError.emptyCode.localizedDescription; return }
         do {
             let config = try configuration.validated()
             guard let key = try repository.key(for: config.baseURL), !key.isEmpty else {
                 error = AIReviewError.missingKey.localizedDescription; showSettings = true; return
             }
-            let request = AIReviewRequest(snapshot: AIReviewSnapshot(draft), persona: config.selectedPersona, mode: config.mode, instruction: instruction)
+            let request = AIReviewRequest(snapshot: snapshot, persona: config.selectedPersona, mode: config.mode, instruction: instruction)
             // Validate before allocating or sending a network task.
             _ = try AIReviewPrompt.body(request, configuration: config)
             let id = UUID(); generation = id; isRunning = true; error = nil; notice = nil; result = nil

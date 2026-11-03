@@ -69,10 +69,27 @@ struct AIReviewSnapshot: Equatable, Sendable {
     let filename: String
     let remotePath: String?
     let code: String
-    init(_ draft: ScriptDraft) { draftID = draft.id; filename = draft.name; remotePath = draft.remotePath; code = draft.code }
+    let notebookCellIndex: Int?
+    let documentCode: String
+    init(_ draft: ScriptDraft, cellIndex: Int? = nil) {
+        draftID = draft.id; filename = draft.name; remotePath = draft.remotePath
+        notebookCellIndex = cellIndex; documentCode = draft.code
+        if let cellIndex, let notebook = try? NotebookDocument(draft.code), notebook.cells.indices.contains(cellIndex), notebook.cells[cellIndex]["cell_type"] as? String == "code" {
+            code = notebook.source(at: cellIndex)
+        } else { code = cellIndex == nil ? draft.code : "" }
+    }
+    func document(applying proposal: String) throws -> String {
+        guard let index = notebookCellIndex else {
+            if filename.lowercased().hasSuffix(".ipynb") { _ = try NotebookDocument(proposal) }
+            return proposal
+        }
+        var notebook = try NotebookDocument(documentCode)
+        guard notebook.cells.indices.contains(index) else { throw AIReviewError.documentChanged }
+        notebook.updateSource(at: index, text: proposal); return try notebook.serialized()
+    }
     func matches(_ draft: ScriptDraft?) -> Bool {
         guard let draft else { return false }
-        return draft.id == draftID && draft.name == filename && draft.remotePath == remotePath && draft.code == code
+        return draft.id == draftID && draft.name == filename && draft.remotePath == remotePath && draft.code == documentCode
     }
 }
 
