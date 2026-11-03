@@ -254,11 +254,19 @@ actor JupyterClient: KernelService, RemoteFileService {
         let (metadataStatus, metadata) = try await requestHTTP("GET", "/contents/" + path, allowed: [200, 404], query: [URLQueryItem(name: "content", value: "0")])
         guard metadataStatus != 404 else { throw RemoteFileMissing(path: path) }
         let entry = try JSONDecoder().decode(RemoteEntry.self, from: metadata)
-        guard entry.type == "file" else { throw LabError.message("此檔案請在 JupyterLab 開啟；App 編輯器目前支援文字檔。") }
-        guard (entry.size ?? 0) <= 1_048_576 else { throw LabError.message("此檔案超過 1 MB，請在 JupyterLab 開啟。") }
-        let (contentStatus, data) = try await requestHTTP("GET", "/contents/" + path, allowed: [200, 404], query: [URLQueryItem(name: "format", value: "text")])
+        guard ["file", "notebook"].contains(entry.type) else { throw LabError.message("此檔案請在 JupyterLab 開啟；App 編輯器目前支援文字檔。") }
+        let limit = entry.type == "notebook" ? 8_388_608 : 1_048_576
+        guard (entry.size ?? 0) <= limit else { throw LabError.message("此檔案超過 App 預覽大小限制。") }
+        let (contentStatus, data) = try await requestHTTP("GET", "/contents/" + path, allowed: [200, 404], query: [URLQueryItem(name: "format", value: entry.type == "notebook" ? "json" : "text")])
         guard contentStatus != 404 else { throw RemoteFileMissing(path: path) }
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any], let text = object["content"] as? String, text.utf8.count <= 1_048_576 else {
+        guard data.count <= limit + 65_536, let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw LabError.message("遠端檔案格式不正確或超過預覽限制。")
+        }
+        let content: String?
+        if entry.type == "notebook", let notebook = object["content"] as? [String: Any] {
+            content = String(decoding: try JSONSerialization.data(withJSONObject: notebook, options: [.sortedKeys]), as: UTF8.self)
+        } else { content = object["content"] as? String }
+        guard let text = content, text.utf8.count <= limit else {
             throw LabError.message("此檔案無法作為 UTF-8 文字開啟。")
         }
         let model = try JSONDecoder().decode(RemoteEntry.self, from: data)
@@ -266,6 +274,7 @@ actor JupyterClient: KernelService, RemoteFileService {
     }
     func saveRemoteFile(path: String, content: String, expectedContent: String) async throws -> RemoteTextFile {
         let current = try await remoteFile(path)
+        guard current.entry.type != "notebook" else { throw LabError.message("Notebook 目前為唯讀預覽，不會覆寫遠端內容。") }
         guard current.entry.writable else { throw LabError.message("此遠端檔案沒有寫入權限。") }
         guard current.content == expectedContent else { throw RemoteConflict(file: current) }
         _ = try await http("PUT", "/contents/" + RemotePath.validated(path), body: ["type": "file", "format": "text", "content": content], allowed: [200, 201])

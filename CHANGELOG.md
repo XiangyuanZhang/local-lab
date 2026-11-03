@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.4 — 2026-11-03
+
+- Open remote Notebook files inside the App rather than launching a browser.
+- Read Notebook JSON through the Contents API and passively render Markdown, code, saved text/error outputs and bounded PNG images. Notebook previews are read-only; text-style writes are rejected.
+- Remove confirmed missing remote files from sidebar caches while preserving unsaved local copies.
+- Add Notebook preview, in-app selection and readonly regression checks, plus isolated Jupyter integration checks in CI.
+
 ## 1.1.3 — 2026-11-03
 
 - Use one adaptive accent selection fill for bottom tabs and Markdown controls, improving dark-mode contrast.
