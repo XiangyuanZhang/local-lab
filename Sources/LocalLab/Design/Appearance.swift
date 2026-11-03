@@ -77,9 +77,9 @@ enum PanelFinish: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .frosted: return "磨砂"
-        case .solid: return "實心"
-        case .clear: return "通透"
+        case .frosted: return "標準磨砂"
+        case .solid: return "濃厚磨砂"
+        case .clear: return "輕盈磨砂"
         }
     }
 }
@@ -236,19 +236,6 @@ struct PanelBackdrop: View {
     var radius: CGFloat = 0
 
     var body: some View {
-        RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .fill(fillStyle)
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(finish == .solid ? AnyShapeStyle(Color.clear) : AnyShapeStyle(Aurora.panelTint))
-            )
-    }
-
-    private var fillStyle: AnyShapeStyle {
-        switch finish {
-        case .frosted: return AnyShapeStyle(.regularMaterial)
-        case .solid: return AnyShapeStyle(Color(nsColor: .windowBackgroundColor))
-        case .clear: return AnyShapeStyle(.ultraThinMaterial)
-        }
+        Aurora.FrostedSurface(radius: radius, tintOpacity: finish == .solid ? 0.12 : finish == .clear ? 0.02 : 0.04)
     }
 }

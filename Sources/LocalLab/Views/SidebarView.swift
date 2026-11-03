@@ -59,9 +59,9 @@ struct SidebarView: View {
     private var sidebarBackdrop: some View {
         if background.image != nil, let settings = background.configuration {
             Aurora.scrim
-                .opacity(1 - (settings.sidebarTransparency ?? settings.transparency))
+                .opacity(0.35 * (1 - (settings.sidebarTransparency ?? settings.transparency)))
         } else {
-            PanelBackdrop(finish: appearance.panel)
+            Color.clear // The outer card supplies the material; avoid stacking blur.
         }
     }
 

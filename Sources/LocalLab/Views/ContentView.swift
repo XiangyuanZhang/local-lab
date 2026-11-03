@@ -21,12 +21,15 @@ struct ContentView: View {
     @State private var sidebarWidth: CGFloat = 280
     @State private var sidebarDragStart: CGFloat?
     @State private var titlebarInset: CGFloat = 52
+    @State private var isFullScreen = false
     @AppStorage("editorFontSize") private var fontSize = 14.0
     @EnvironmentObject private var appearance: AppearanceStore
     @EnvironmentObject private var ai: AIReviewStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        VStack(spacing: 0) {
+            if isFullScreen { fullScreenToolbar }
         HStack(spacing: 0) {
             // Keep the native List at a stable width while revealing/clipping its column.
             // Inserting/removing an NSSplitView child suppresses SwiftUI transitions.
@@ -82,7 +85,7 @@ struct ContentView: View {
                         .padding(12)
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(.ultraThinMaterial)
+                                .fill(.regularMaterial)
                                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Aurora.coral.opacity(0.10)))
                                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Aurora.coral.opacity(0.24), lineWidth: 0.8))
                         )
@@ -116,48 +119,24 @@ struct ContentView: View {
                 }
             }
             .animation(reduceMotion ? nil : Motion.gentle, value: ai.panelVisible)
-            .navigationTitle(store.browsingRemote ? "遠端檔案" : store.selected?.name ?? "Python 工作區")
+            .navigationTitle(nativeWindowTitle)
             .navigationSubtitle("Local Lab · TUM")
             .toolbar {
-                ToolbarItem(placement: .navigation) {
-                    Button { withAnimation(reduceMotion ? nil : Motion.gentle) { sidebarVisible.toggle() } } label: {
-                        Image(systemName: "sidebar.left")
-                            .font(.system(size: 14, weight: .medium))
-                            .frame(width: 24, height: 24)
-                    }
-                    .buttonStyle(.automatic)
-                    .help(sidebarVisible ? "收起側邊欄" : "展開側邊欄")
-                    .accessibilityLabel("側邊欄")
-                    .accessibilityIdentifier("sidebar-toggle")
-                }
-                ToolbarItemGroup(placement: .primaryAction) {
-                    if store.runningID != nil {
-                        Button { store.interrupt() } label: { Label("中斷", systemImage: "stop.fill") }.help("中斷 App 專用核心（⌘ .）")
-                    }
-                    if store.selected?.remotePath != nil {
-                        Button { Task { await store.saveSelectedRemote() } } label: { Label("儲存至遠端", systemImage: "icloud.and.arrow.up") }.disabled(!store.isReady || store.fileBusy || store.selected?.isRemoteDirty != true)
-                    }
-                    Button { withAnimation(reduceMotion ? nil : Motion.gentle) { ai.panelVisible.toggle() } } label: { Label("AI 審碼", systemImage: "sparkles") }
-                        .help("AI 審碼（⇧⌘R）").accessibilityIdentifier("ai-toolbar")
-                    Button { store.run() } label: { Label("執行", systemImage: "play.fill") }.disabled(!store.canRun).help("執行目前草稿（⌘ Return）")
-                    Button { store.showConnection = true } label: { Label(store.isReady ? "連線資訊" : "連線", systemImage: "network") }.disabled(store.busy || store.runningID != nil)
-                    Menu {
-                        Button("更换背景…", systemImage: "photo") { store.showBackgroundEditor = true }
-                        Divider()
-                        Button("匯入文字或 Python 檔案…", systemImage: "square.and.arrow.down") { importing = true }
-                        Button("匯出目前草稿…", systemImage: "square.and.arrow.up") { exporting = true }.disabled(store.selected == nil)
-                        Button("新增遠端檔案…", systemImage: "doc.badge.plus") { store.createFilePresented = true }.disabled(!store.isReady || store.fileBusy)
-                        Button("另存至遠端…", systemImage: "icloud.and.arrow.up") { store.saveRemotePresented = true }.disabled(!store.isReady || store.fileBusy || store.selected == nil)
-                        Button("重新整理遠端", systemImage: "arrow.clockwise") { Task { await store.refreshRemote() } }.disabled(!store.isReady || store.fileBusy)
-                        Divider()
-                        Button("關閉專用核心", systemImage: "power") { Task { _ = await store.disconnect() } }.disabled(store.connection == nil || store.busy)
-                    } label: { Image(systemName: "ellipsis") }.help("工作區操作")
+                if !isFullScreen {
+                    ToolbarItem(placement: .navigation) { sidebarToggle.buttonStyle(.automatic) }
+                    ToolbarItemGroup(placement: .primaryAction) { workspaceActions }
+                } else {
+                    // Keep the native fullscreen titlebar attached without duplicating actions.
+                    ToolbarItem(placement: .navigation) { Color.clear.frame(width: 1, height: 1).accessibilityHidden(true) }
                 }
             }
 
         }
+        }
+        .ignoresSafeArea(.container, edges: isFullScreen ? .top : [])
         .frame(minWidth: ai.panelVisible ? 1080 : 760, minHeight: 550)
         .overlay(alignment: .topLeading) {
+            if !isFullScreen {
             GeometryReader { geometry in
                 let leading = max(280, sidebarVisible ? sidebarWidth + 1 : 0) + 10
                 ViewThatFits(in: .horizontal) {
@@ -175,12 +154,14 @@ struct ContentView: View {
                     .offset(y: -max(geometry.safeAreaInsets.top, titlebarInset))
             }
             .allowsHitTesting(false)
+            }
         }
         .tint(Aurora.accent)
         .background(WorkspaceBackdrop(store: background).ignoresSafeArea())
-        .background(WorkspaceWindowChrome(inset: $titlebarInset))
+        .background(WorkspaceWindowChrome(inset: $titlebarInset, fullScreen: $isFullScreen))
         .environment(\.workspaceHasBackground, background.image != nil)
         .toolbarBackground(.hidden, for: .windowToolbar)
+        .modifier(FullScreenToolbarReveal())
         .sheet(isPresented: $store.showBackgroundEditor) { BackgroundEditor(store: background) }
         .sheet(isPresented: $store.showConnection) { ConnectionSheet(store: store) }
         .sheet(isPresented: $store.saveRemotePresented) { RemoteNameSheet(store: store, action: .saveCopy) }
@@ -200,6 +181,83 @@ struct ContentView: View {
         .onAppear { appeared = true }
         .animation(Motion.gentle, value: store.error)
         .animation(reduceMotion ? nil : Motion.gentle, value: sidebarVisible)
+    }
+
+    /// The native title shares horizontal space with the status capsules.
+    /// Keep its display compact; full document names remain in the editor and sidebar.
+    private var nativeWindowTitle: String {
+        let name = store.browsingRemote ? "遠端檔案" : store.selected?.name ?? "Python 工作區"
+        return name.count > 10 ? String(name.prefix(9)) + "…" : name
+    }
+
+    private var sidebarToggle: some View {
+        Button { withAnimation(reduceMotion ? nil : Motion.gentle) { sidebarVisible.toggle() } } label: {
+            Image(systemName: "sidebar.left")
+                .font(.system(size: 14, weight: .medium))
+                .frame(width: 24, height: 24)
+        }
+        .help(sidebarVisible ? "收起側邊欄" : "展開側邊欄")
+        .accessibilityLabel("側邊欄")
+        .accessibilityIdentifier("sidebar-toggle")
+    }
+
+    @ViewBuilder private var workspaceActions: some View {
+        if store.runningID != nil {
+            Button { store.interrupt() } label: { Label("中斷", systemImage: "stop.fill") }.help("中斷 App 專用核心（⌘ .）")
+        }
+        if store.selected?.remotePath != nil {
+            Button { Task { await store.saveSelectedRemote() } } label: { Label("儲存至遠端", systemImage: "icloud.and.arrow.up") }.disabled(!store.isReady || store.fileBusy || store.selected?.isRemoteDirty != true)
+        }
+        Button { withAnimation(reduceMotion ? nil : Motion.gentle) { ai.panelVisible.toggle() } } label: { Label("AI 審碼", systemImage: "sparkles") }
+            .help("AI 審碼（⇧⌘R）").accessibilityIdentifier("ai-toolbar")
+        Button { store.run() } label: { Label("執行", systemImage: "play.fill") }.disabled(!store.canRun).help("執行目前草稿（⌘ Return）")
+        Button { store.showConnection = true } label: { Label(store.isReady ? "連線資訊" : "連線", systemImage: "network") }.disabled(store.busy || store.runningID != nil)
+        Menu {
+            Button("更换背景…", systemImage: "photo") { store.showBackgroundEditor = true }
+            Divider()
+            Button("匯入文字或 Python 檔案…", systemImage: "square.and.arrow.down") { importing = true }
+            Button("匯出目前草稿…", systemImage: "square.and.arrow.up") { exporting = true }.disabled(store.selected == nil)
+            Button("新增遠端檔案…", systemImage: "doc.badge.plus") { store.createFilePresented = true }.disabled(!store.isReady || store.fileBusy)
+            Button("另存至遠端…", systemImage: "icloud.and.arrow.up") { store.saveRemotePresented = true }.disabled(!store.isReady || store.fileBusy || store.selected == nil)
+            Button("重新整理遠端", systemImage: "arrow.clockwise") { Task { await store.refreshRemote() } }.disabled(!store.isReady || store.fileBusy)
+            Divider()
+            Button("關閉專用核心", systemImage: "power") { Task { _ = await store.disconnect() } }.disabled(store.connection == nil || store.busy)
+        } label: { Image(systemName: "ellipsis") }.help("工作區操作")
+    }
+
+    private var fullScreenToolbar: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                sidebarToggle
+                    .buttonStyle(FullScreenToolbarButtonStyle())
+                    .tint(.primary)
+                    .padding(4)
+                    .modifier(Aurora.NavigationGlassSurface(radius: 1000))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(store.browsingRemote ? "遠端檔案" : store.selected?.name ?? "Python 工作區")
+                        .font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                    Text("Local Lab · TUM").font(.system(size: 10)).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .frame(height: 36)
+                .modifier(Aurora.NavigationGlassSurface(radius: 1000))
+            }.frame(width: 268, alignment: .leading)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { titlebarSystemStatus; apiStatus(compact: false) }.fixedSize()
+                apiStatus(compact: false).fixedSize()
+                apiStatus(compact: true).fixedSize()
+            }
+            Spacer(minLength: 8)
+            HStack(spacing: 6) { workspaceActions }
+                .labelStyle(.iconOnly).buttonStyle(FullScreenToolbarButtonStyle()).tint(.primary)
+                .padding(4)
+                .modifier(Aurora.NavigationGlassSurface(radius: 1000))
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 52)
+        .modifier(NavigationGlassGroup())
+
     }
 
     // Clock updates at minute boundaries; hardware/network changes are event-driven.
@@ -222,13 +280,10 @@ struct ContentView: View {
             }
         }
         .font(.system(size: 12))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.primary)
         .padding(.horizontal, 14)
         .frame(height: 36)
-        .background {
-            Capsule().fill(.ultraThinMaterial)
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 0.7))
-        }
+        .modifier(Aurora.NavigationGlassSurface(radius: 1000))
         .accessibilityElement(children: .combine)
         .help(systemStatus.network.description + "；" + (systemStatus.battery.charging ? "正在充電" : systemStatus.battery.onACPower ? "外接電源" : "使用電池") + "。網路圖示不代表學校伺服器連線狀態。")
     }
@@ -244,13 +299,10 @@ struct ContentView: View {
             Text(ai.isRunning ? "… tok/s" : ai.usage.speedText).monospacedDigit()
         }
         .font(.system(size: compact ? 10 : 11))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.primary)
         .padding(.horizontal, compact ? 10 : 14)
         .frame(height: 36)
-        .background {
-            Capsule().fill(.ultraThinMaterial)
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 0.7))
-        }
+        .modifier(Aurora.NavigationGlassSurface(radius: 1000))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("API：模型 \(ai.statusModel)，單次 \(ai.usage.lastText) tokens，本次啟動 \(ai.usage.totalText) tokens，平均消耗速度 \(ai.usage.speedText)。")
         .help("單次與啟動總量採用 API 回傳的輸入＋輸出 token；速度為總 token ÷ 請求耗時（含網路），完成後更新。≥ 表示有請求未回傳用量，總數只含已確認部分；重新啟動 App 歸零。")
@@ -294,31 +346,17 @@ struct ContentView: View {
         .font(.caption)
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(
-            Capsule(style: .continuous)
-                .fill(statusCapsuleFill)
-                .overlay(Capsule(style: .continuous).fill(Aurora.panelTint.opacity(appearance.panel == .solid ? 0 : 1)))
-                .overlay(Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.34), lineWidth: 0.8))
-                .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
-        )
+        .background(Aurora.FrostedSurface(radius: 1000))
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .animation(Motion.gentle, value: store.status)
         .animation(Motion.gentle, value: store.runningID != nil)
     }
 
-    private var statusCapsuleFill: AnyShapeStyle {
-        switch appearance.panel {
-        case .frosted: return AnyShapeStyle(.ultraThinMaterial)
-        case .solid: return AnyShapeStyle(Color(nsColor: .windowBackgroundColor))
-        case .clear: return AnyShapeStyle(.ultraThinMaterial)
-        }
-    }
-
     private var regionOverlay: some View {
         let transparency = background.configuration?.transparency ?? 0
         return Aurora.scrim
-            .opacity(background.image == nil ? 0 : 1 - transparency)
+            .opacity(background.image == nil ? 0 : 0.35 * (1 - transparency))
             .allowsHitTesting(false)
     }
 }
@@ -422,5 +460,39 @@ struct EditorPane: View {
 
     private var sourceEditor: some View {
         CodeEditor(text: Binding(get: { store.selected?.code ?? "" }, set: { store.updateCode($0) }), fontSize: fontSize, python: store.selected?.name.lowercased().hasSuffix(".py") == true)
+    }
+}
+
+private struct FullScreenToolbarButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var enabled
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(enabled ? Color.primary : Color.secondary)
+            .frame(width: 32, height: 28)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(configuration.isPressed ? 0.12 : 0)))
+            .opacity(enabled ? 1 : 0.5)
+    }
+}
+
+/// Preserve AppKit traffic lights: completely hiding the toolbar also disables
+/// its native fullscreen hover reveal.
+private struct FullScreenToolbarReveal: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.windowToolbarFullScreenVisibility(.onHover)
+        } else {
+            content
+        }
+    }
+}
+
+private struct NavigationGlassGroup: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            GlassEffectContainer(spacing: 8) { content }
+        } else {
+            content
+        }
     }
 }
