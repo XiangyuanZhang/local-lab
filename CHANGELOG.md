@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.3 — 2026-11-03
+
+- Use one adaptive accent selection fill for bottom tabs and Markdown controls, improving dark-mode contrast.
+- Expose Markdown preview/edit/split modes as real accessible buttons with Option-Command-1/2/3 shortcuts.
+- Keep Markdown header chips on one line, move mode controls to a separate row, and let split panes fit compact editor widths.
+- Adapt Markdown typography and padding in narrow preview panes to prevent clipped headings.
+
 ## 1.1.2 — 2026-11-02
 
 - Preserve native fullscreen hover controls while keeping workspace actions inside the content area; use compact native chrome.

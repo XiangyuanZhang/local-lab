@@ -50,6 +50,9 @@ enum Aurora {
     /// Wash laid over frosted panels so busy backgrounds never hurt legibility.
     static let panelTint = color(light: 0xFFFFFF, dark: 0x0F0F16, alpha: 0.50)
 
+    /// Shared selected-control fill, adaptive in light and dark appearances.
+    static var selectionFill: Color { accent.opacity(0.20) }
+
     static var ink: Color { .primary }
     static var inkSecondary: Color { .secondary }
 
@@ -307,7 +310,7 @@ struct SlidingPill<ID: Hashable, Label: View>: View {
                     .background {
                         if id == selection {
                             Capsule(style: .continuous)
-                                .fill(.white.opacity(0.72))
+                                .fill(Aurora.selectionFill)
                                 .overlay(Capsule(style: .continuous).strokeBorder(Aurora.accent.opacity(0.32), lineWidth: 0.8))
                                 .shadow(color: Color.black.opacity(0.10), radius: 5, x: 0, y: 2)
                                 .matchedGeometryEffect(id: "pill", in: namespace)

@@ -13,3 +13,5 @@
 - https://developer.apple.com/design/human-interface-guidelines/materials
 - https://developer.apple.com/documentation/swiftui/applying-liquid-glass-to-custom-views
 - https://developer.apple.com/documentation/swiftui/windowtoolbarfullscreenvisibility/onhover
+
+选中控件共用 `Aurora.selectionFill`（自适应强调色 20%），避免深色模式白字叠在白色标签上。Markdown 模式控件使用原生 Button 和选中辅助功能状态；⌥⌘1/2/3 对应预览/编辑/并排，窄编辑区的模式行与文件标题分开。

@@ -383,14 +383,20 @@ struct EditorPane: View {
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
                 Spacer()
-                if isMarkdown { markdownControl }
-                Aurora.Chip(text: languageLabel, kind: .brand)
+                Aurora.Chip(text: languageLabel, kind: .brand).fixedSize(horizontal: true, vertical: false)
                 Aurora.Chip(text: syncLabel, kind: store.selected?.isRemoteDirty == true ? .coral : .neutral)
+                    .fixedSize(horizontal: true, vertical: false)
                     .popOnChange(of: syncLabel)
             }
             .font(.caption)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
+            if isMarkdown {
+                markdownControl
+                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.horizontal, 16).padding(.bottom, 8)
+            }
             hairline
             if let id = store.selection, store.conflicts[id] != nil {
                 HStack(alignment: .top) {
@@ -413,8 +419,8 @@ struct EditorPane: View {
                     .transition(.opacity)
             } else if isMarkdown && markdownMode == 2 {
                 HSplitView {
-                    sourceEditor.frame(minWidth: 200)
-                    MarkdownPreview(text: store.selected?.code ?? "").frame(minWidth: 250)
+                    sourceEditor.frame(minWidth: 120, idealWidth: 200, maxWidth: .infinity)
+                    MarkdownPreview(text: store.selected?.code ?? "").frame(minWidth: 160, idealWidth: 250, maxWidth: .infinity)
                 }
                 .transition(.opacity)
             } else {
@@ -447,12 +453,18 @@ struct EditorPane: View {
 
     private var markdownControl: some View {
         SlidingPill(ids: [0, 1, 2], selection: markdownMode, namespace: pill) { id in
-            Text(["預覽", "編輯", "並排"][id])
-                .font(.caption.weight(markdownMode == id ? .semibold : .regular))
-                .foregroundStyle(markdownMode == id ? Color.primary : Color.secondary)
-                .frame(minWidth: 44)
-                .contentShape(Capsule())
-                .onTapGesture { markdownMode = id }
+            Button { markdownMode = id } label: {
+                Text(["預覽", "編輯", "並排"][id])
+                    .font(.caption.weight(markdownMode == id ? .semibold : .regular))
+                    .foregroundStyle(markdownMode == id ? Color.primary : Color.secondary)
+                    .frame(minWidth: 44)
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(markdownMode == id ? .isSelected : [])
+            .accessibilityIdentifier("markdown-mode-\(id)")
+            .keyboardShortcut(KeyEquivalent(Character(String(id + 1))), modifiers: [.command, .option])
+            .help("Markdown 顯示方式（⌥⌘\(id + 1)）")
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Markdown 顯示方式")
