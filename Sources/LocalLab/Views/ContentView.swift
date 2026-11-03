@@ -206,12 +206,12 @@ struct ContentView: View {
             Button { store.interrupt() } label: { Label("中斷", systemImage: "stop.fill") }.help("中斷 App 專用核心（⌘ .）")
         }
         if store.selected?.remotePath != nil {
-            Button { Task { await store.saveSelectedRemote() } } label: { Label("儲存至遠端", systemImage: "icloud.and.arrow.up") }.disabled(!store.isReady || store.fileBusy || store.selected?.isRemoteDirty != true)
+            Button { Task { await store.saveSelectedRemote() } } label: { Label("儲存至遠端", systemImage: "icloud.and.arrow.up").frame(minWidth: 36, minHeight: 32).contentShape(Rectangle()) }.disabled(!store.isReady || store.fileBusy || store.selected?.isRemoteDirty != true)
         }
-        Button { withAnimation(reduceMotion ? nil : Motion.gentle) { ai.panelVisible.toggle() } } label: { Label("AI 審碼", systemImage: "sparkles") }
+        Button { withAnimation(reduceMotion ? nil : Motion.gentle) { ai.panelVisible.toggle() } } label: { Label("AI 審碼", systemImage: "sparkles").frame(minWidth: 36, minHeight: 32).contentShape(Rectangle()) }
             .help("AI 審碼（⇧⌘R）").accessibilityIdentifier("ai-toolbar")
-        Button { store.run() } label: { Label("執行", systemImage: "play.fill") }.disabled(!store.canRun).help("執行目前草稿（⌘ Return）")
-        Button { store.showConnection = true } label: { Label(store.isReady ? "連線資訊" : "連線", systemImage: "network") }.disabled(store.busy || store.runningID != nil)
+        Button { store.run() } label: { Label("執行", systemImage: "play.fill").frame(minWidth: 36, minHeight: 32).contentShape(Rectangle()) }.disabled(!store.canRun).help("執行目前草稿（⌘ Return）")
+        Button { store.showConnection = true } label: { Label(store.isReady ? "連線資訊" : "連線", systemImage: "network").frame(minWidth: 36, minHeight: 32).contentShape(Rectangle()) }.disabled(store.busy || store.runningID != nil)
         Menu {
             Button("更换背景…", systemImage: "photo") { store.showBackgroundEditor = true }
             Divider()
@@ -222,7 +222,8 @@ struct ContentView: View {
             Button("重新整理遠端", systemImage: "arrow.clockwise") { Task { await store.refreshRemote() } }.disabled(!store.isReady || store.fileBusy)
             Divider()
             Button("關閉專用核心", systemImage: "power") { Task { _ = await store.disconnect() } }.disabled(store.connection == nil || store.busy)
-        } label: { Image(systemName: "ellipsis") }.help("工作區操作")
+        } label: { Image(systemName: "ellipsis").frame(width: 36, height: 32).contentShape(Rectangle()) }
+            .menuStyle(.borderlessButton).fixedSize().help("工作區操作").accessibilityIdentifier("workspace-menu")
     }
 
     private var fullScreenToolbar: some View {
@@ -416,7 +417,8 @@ struct EditorPane: View {
                     .padding(.horizontal, 20).padding(.top, 8)
             }
             if isNotebook {
-                NotebookPreview(text: store.selected?.code ?? "")
+                NotebookEditor(text: Binding(get: { store.selected?.code ?? "" }, set: { store.updateCode($0) }))
+                    .id(store.selected?.id)
             } else if isMarkdown && markdownMode == 0 {
                 MarkdownPreview(text: store.selected?.code ?? "")
                     .transition(.opacity)
@@ -445,7 +447,7 @@ struct EditorPane: View {
     }
 
     private var languageLabel: String {
-        isNotebook ? "Notebook · 唯讀" : store.selected?.name.lowercased().hasSuffix(".py") == true ? "Python" : (isMarkdown ? "Markdown" : "文字")
+        isNotebook ? "Notebook" : store.selected?.name.lowercased().hasSuffix(".py") == true ? "Python" : (isMarkdown ? "Markdown" : "文字")
     }
 
     private var syncLabel: String {
@@ -484,7 +486,8 @@ private struct FullScreenToolbarButtonStyle: ButtonStyle {
         configuration.label
             .font(.system(size: 14, weight: .semibold))
             .foregroundStyle(enabled ? Color.primary : Color.secondary)
-            .frame(width: 32, height: 28)
+            .frame(width: 36, height: 32)
+            .contentShape(Rectangle())
             .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(configuration.isPressed ? 0.12 : 0)))
             .opacity(enabled ? 1 : 0.5)
     }

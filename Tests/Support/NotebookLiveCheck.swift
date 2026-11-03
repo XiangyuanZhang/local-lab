@@ -39,12 +39,15 @@ import Foundation
                 let file = try await client.remoteFile(path)
                 let markdown = try NotebookMarkdown.render(file.content)
                 guard file.entry.type == "notebook", markdown.contains("Notebook stays inside Local Lab"), markdown.contains("print(42)") else { throw LabError.message("Notebook read/render check failed") }
-                var readOnly = false
-                do { _ = try await client.saveRemoteFile(path: path, content: "bad replacement", expectedContent: file.content) }
-                catch { readOnly = error.localizedDescription.contains("唯讀") }
-                let unchanged = try await client.remoteFile(path)
-                guard readOnly, unchanged.content == file.content else { throw LabError.message("Read-only guard failed") }
-                report["api_read_render_and_readonly"] = true
+                var edited = try NotebookDocument(file.content)
+                edited.updateSource(at: 1, text: "value = 40\nprint(value + 3)\n")
+                let saved = try await client.saveRemoteFile(path: path, content: edited.serialized(), expectedContent: file.content)
+                guard saved.entry.type == "notebook", try edited.matchesSaved(saved.content) else { throw LabError.message("Notebook save verification failed") }
+                let capture = NotebookRunOutput()
+                try await client.execute(code: edited.pythonCode()) { event in await capture.append(event) }
+                let result = await capture.result()
+                guard result.success, result.outputs.contains(where: { ($0["text"] as? String)?.contains("43") == true }) else { throw LabError.message("Notebook execution failed") }
+                report["api_read_edit_save_execute"] = true
                 try JSONSerialization.data(withJSONObject: ["path": path], options: .prettyPrinted).write(to: root.appendingPathComponent("ready.json"))
                 print("READY_FOR_UI: " + path); fflush(stdout)
                 let deadline = Date().addingTimeInterval(900)
@@ -52,11 +55,11 @@ import Foundation
                     try await Task.sleep(nanoseconds: 1_000_000_000)
                 }
                 report["ui_confirmed"] = FileManager.default.fileExists(atPath: root.appendingPathComponent("ui-done.flag").path)
-            } catch { report["test_error"] = String(describing: type(of: error)) }
+            } catch { report["test_error"] = error.localizedDescription }
             if madeFile { let deleted = try await http("DELETE", path); let checked = try await http("GET", path); report["file_removed"] = deleted == 204 && checked == 404 }
             if madeFolder { let deleted = try await http("DELETE", folder); let checked = try await http("GET", folder); report["folder_removed"] = deleted == 204 && checked == 404 }
             try await client.disconnect(); report["owned_kernel_cleaned"] = true
-            report["success"] = ["api_read_render_and_readonly", "ui_confirmed", "file_removed", "folder_removed", "owned_kernel_cleaned"].allSatisfy { report[$0] as? Bool == true }
+            report["success"] = ["api_read_edit_save_execute", "ui_confirmed", "file_removed", "folder_removed", "owned_kernel_cleaned"].allSatisfy { report[$0] as? Bool == true }
         } catch { report["error_type"] = String(describing: type(of: error)); report["error_code"] = (error as NSError).code; try? await client.disconnect() }
         try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(to: root.appendingPathComponent("report.json"))
         print("REPORT_SAVED"); fflush(stdout)

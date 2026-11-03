@@ -112,7 +112,7 @@ final class WorkspaceStore: ObservableObject {
     }
     var selected: ScriptDraft? { drafts.first(where: { $0.id == selection }) }
     var busy: Bool { connecting || closing }
-    var canRun: Bool { (selected?.name.lowercased().hasSuffix(".py") ?? false) && isReady && !busy && runningID == nil && !(selected?.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) }
+    var canRun: Bool { (selected.map { $0.name.lowercased().hasSuffix(".py") || $0.name.lowercased().hasSuffix(".ipynb") } ?? false) && isReady && !busy && runningID == nil && !(selected?.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) }
     var status: String {
         if connecting { return "正在連線…" }
         if closing { return "正在關閉核心…" }
@@ -163,6 +163,9 @@ final class WorkspaceStore: ObservableObject {
     }
     func run() {
         guard canRun, let draft = selected else { return }
+        let executable: String
+        do { executable = draft.name.lowercased().hasSuffix(".ipynb") ? try NotebookDocument(draft.code).pythonCode() : draft.code }
+        catch { self.error = error.localizedDescription; return }
         bottomPanel = .output
         outputs[draft.id] = []; runStates[draft.id] = "本機執行中"; runningID = draft.id
         outputSize = 0; outputTruncated = false; error = nil
@@ -171,15 +174,38 @@ final class WorkspaceStore: ObservableObject {
             let start = Date()
             do {
                 guard let version = connection?.pythonVersion, !version.isEmpty else { throw LabError.message("未取得伺服器 Python 版本；已停止，未送出程式。") }
-                let localOK = try await localPython.run(code: draft.code, name: draft.name, version: version) { [weak self] text, isError in
+                let localOK = try await localPython.run(code: executable, name: draft.name.lowercased().hasSuffix(".ipynb") ? draft.name + ".py" : draft.name, version: version) { [weak self] text, isError in
                     await self?.consume(.text(text, isError: isError), id: draft.id)
                 }
                 try Task.checkCancellation()
                 guard localOK else { runStates[draft.id] = "本機錯誤 · 未送出"; durations[draft.id] = Date().timeIntervalSince(start); runningID = nil; return }
                 runStates[draft.id] = "伺服器覆核中"
                 consume(.text("\n本機成功 → 伺服器覆核\n", isError: false), id: draft.id)
-                try await service.execute(code: draft.code) { [weak self] event in
-                    await self?.consume(event, id: draft.id)
+                if draft.name.lowercased().hasSuffix(".ipynb") {
+                    var notebook = try NotebookDocument(draft.code)
+                    var baseline = draft.code
+                    for cell in try notebook.pythonCells() {
+                        try Task.checkCancellation()
+                        runStates[draft.id] = "伺服器覆核中"
+                        consume(.text("\n單元格 \(cell.index + 1)\n", isError: false), id: draft.id)
+                        let capture = NotebookRunOutput()
+                        try await service.execute(code: cell.code) { [weak self] event in
+                            await capture.append(event)
+                            await self?.consume(event, id: draft.id)
+                        }
+                        let result = await capture.result()
+                        notebook.setOutputs(at: cell.index, outputs: result.outputs)
+                        // Never overwrite edits or a different document selected during execution.
+                        if let index = drafts.firstIndex(where: { $0.id == draft.id }), drafts[index].code == baseline {
+                            let updated = try notebook.serialized()
+                            drafts[index].code = updated; baseline = updated; persist()
+                        }
+                        if !result.success { break }
+                    }
+                } else {
+                    try await service.execute(code: executable) { [weak self] event in
+                        await self?.consume(event, id: draft.id)
+                    }
                 }
             } catch {
                 if !Task.isCancelled && !closing {

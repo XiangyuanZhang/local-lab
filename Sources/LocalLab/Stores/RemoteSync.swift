@@ -129,6 +129,7 @@ extension WorkspaceStore {
             let remote = try await remoteFiles.saveRemoteFile(path: path, content: draft.code, expectedContent: baseline)
             guard let index = drafts.firstIndex(where: { $0.id == draft.id }) else { return }
             // Edits made during the request remain dirty against the newly committed baseline.
+            if drafts[index].code == draft.code { drafts[index].code = remote.content }
             drafts[index].remoteBaseContent = remote.content; drafts[index].remoteModified = remote.entry.lastModified
             conflicts[draft.id] = nil; syncNotice = "已儲存至遠端：\(draft.name)"; lastSynced = Date(); persist()
             remoteEntries = try await remoteFiles.remoteDirectory(remoteDirectoryPath); setDirectoryCache(remoteDirectoryPath, entries: remoteEntries)

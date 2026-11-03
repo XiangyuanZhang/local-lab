@@ -274,21 +274,29 @@ actor JupyterClient: KernelService, RemoteFileService {
     }
     func saveRemoteFile(path: String, content: String, expectedContent: String) async throws -> RemoteTextFile {
         let current = try await remoteFile(path)
-        guard current.entry.type != "notebook" else { throw LabError.message("Notebook 目前為唯讀預覽，不會覆寫遠端內容。") }
         guard current.entry.writable else { throw LabError.message("此遠端檔案沒有寫入權限。") }
         guard current.content == expectedContent else { throw RemoteConflict(file: current) }
-        _ = try await http("PUT", "/contents/" + RemotePath.validated(path), body: ["type": "file", "format": "text", "content": content], allowed: [200, 201])
+        let body: [String: Any]
+        if current.entry.type == "notebook" {
+            let notebook = try NotebookDocument(content)
+            body = ["type": "notebook", "format": "json", "content": notebook.root]
+        } else { body = ["type": "file", "format": "text", "content": content] }
+        _ = try await http("PUT", "/contents/" + RemotePath.validated(path), body: body, allowed: [200, 201])
         let saved = try await remoteFile(path)
-        guard saved.content == content else { throw RemoteConflict(file: saved) }
+        let matches = current.entry.type == "notebook" ? try NotebookDocument(content).matchesSaved(saved.content) : saved.content == content
+        guard matches else { throw RemoteConflict(file: saved) }
         return saved
     }
     func createRemoteFile(path: String, content: String) async throws -> RemoteTextFile {
         let path = try RemotePath.validated(path)
         let (status, _) = try await requestHTTP("GET", "/contents/" + path, allowed: [200, 404], query: [URLQueryItem(name: "content", value: "0")])
         guard status == 404 else { throw LabError.message("同名遠端檔案已存在，請使用另一個名稱。") }
-        _ = try await http("PUT", "/contents/" + path, body: ["type": "file", "format": "text", "content": content], allowed: [200, 201])
+        let notebook = path.lowercased().hasSuffix(".ipynb") ? try NotebookDocument(content.isEmpty ? NotebookDocument.empty : content) : nil
+        let body: [String: Any] = notebook.map { ["type": "notebook", "format": "json", "content": $0.root] } ?? ["type": "file", "format": "text", "content": content]
+        _ = try await http("PUT", "/contents/" + path, body: body, allowed: [200, 201])
         let saved = try await remoteFile(path)
-        guard saved.content == content else { throw RemoteConflict(file: saved) }
+        let matches = try notebook?.matchesSaved(saved.content) ?? (saved.content == content)
+        guard matches else { throw RemoteConflict(file: saved) }
         return saved
     }
     func createRemoteDirectory(path: String) async throws {
