@@ -1,3 +1,10 @@
+# 1.1.8
+
+- Notebook ⌘Enter/Control+Enter 执行当前单元格，Shift+Enter 执行并前进；Run all 单独显示。Markdown 默认渲染、双击或 Edit 编辑，Render/执行快捷键恢复渲染。
+- 本机 Notebook 内核保留变量，逐单元格本机检查成功后再送服务器；结果、错误与执行计数显示在对应单元格下方。渲染器生成的标题、提示统一使用英文。
+- AI 默认只审当前编辑或最近执行的 code cell，可切换整份 Notebook；代码修改与撤销仅影响目标单元格，保留快照检查。
+- 使用连续圆角、透明留白和匹配 Dock 比例的 ICNS；启动时从当前图标资源刷新运行中的 Dock 图标。
+
 # 1.1.7
 
 - 为编程基础学习增加本机练习 Notebook、ipynb 导入、运行至选定单元格及清除 Notebook 输出。

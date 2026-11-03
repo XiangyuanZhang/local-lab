@@ -143,6 +143,26 @@ private actor FixtureAIService: AIReviewService {
             workspace.updateCode(edited.replacementCode!); try workspace.undoAIProposal(result)
             try check(workspace.selected?.code == draft.code, "Undo did not restore original file")
             passed.append("apply_is_explicit_review_only_denied_stale_selection_running_sync_guards_and_safe_undo")
+            var cellDocument = try NotebookDocument(NotebookDocument.empty)
+            cellDocument.append(kind: "code"); cellDocument.updateSource(at: 0, text: "PRIVATE_OTHER_CELL = 'not for review'")
+            cellDocument.append(kind: "code"); cellDocument.updateSource(at: 1, text: "print(1 / 0)")
+            let cellDraft = ScriptDraft(name: "learning.ipynb", code: try cellDocument.serialized())
+            workspace.drafts = [cellDraft]; workspace.selection = cellDraft.id
+            let cellSnapshot = AIReviewSnapshot(cellDraft, cellIndex: 1)
+            let cellRequest = AIReviewRequest(snapshot: cellSnapshot, persona: custom, mode: .edit, instruction: "")
+            let cellWire = String(decoding: try AIReviewPrompt.body(cellRequest, configuration: config), as: UTF8.self)
+            try check(cellSnapshot.code == "print(1 / 0)" && !cellWire.contains("PRIVATE_OTHER_CELL"), "Cell-only AI request leaked another cell or notebook metadata")
+            let cellResult = AIReviewResult(request: cellRequest, response: edited, model: "fixture", provider: "fixture")
+            try workspace.applyAIProposal(cellResult)
+            let modifiedCellDocument = try NotebookDocument(workspace.selected!.code)
+            try check(modifiedCellDocument.source(at: 0) == cellDocument.source(at: 0) && modifiedCellDocument.source(at: 1) == edited.replacementCode, "Cell AI apply replaced the whole notebook")
+            try workspace.undoAIProposal(cellResult)
+            try check(workspace.selected!.code == cellDraft.code, "Cell AI undo did not restore exact notebook contents")
+            workspace.updateCode(cellDraft.code + " ")
+            try expect("Stale notebook cell AI change was applied") { try workspace.applyAIProposal(cellResult) }
+            workspace.drafts = [draft]; workspace.selection = draft.id
+            passed.append("cell_only_AI_payload_isolation_guarded_apply_and_exact_undo")
+
             let service = FixtureAIService()
             let store = AIReviewStore(repository: repository, service: service)
             store.start(draft: draft); try await wait(store)

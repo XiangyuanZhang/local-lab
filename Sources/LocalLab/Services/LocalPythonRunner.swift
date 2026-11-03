@@ -38,13 +38,39 @@ func capturedProcess(_ executable: URL, _ arguments: [String], directory: URL? =
 
 protocol LocalPythonService: Sendable {
     func run(code: String, name: String, version: String, onText: @escaping @Sendable (String, Bool) async -> Void) async throws -> Bool
+    func runCell(code: String, name: String, version: String, onText: @escaping @Sendable (String, Bool) async -> Void) async throws -> Bool
     func interrupt() async
+}
+extension LocalPythonService {
+    func runCell(code: String, name: String, version: String, onText: @escaping @Sendable (String, Bool) async -> Void) async throws -> Bool { try await run(code: code, name: name, version: version, onText: onText) }
 }
 actor LocalPythonRunner: LocalPythonService {
     private let root: URL
+    private var notebook: LocalNotebookProcess?
+    private var notebookContext: String?
+    private var cellBusy = false
     private var control: ProcessControl?
     init(root: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("LocalLab")) { self.root = root }
-    func interrupt() { control?.stop() }
+    func interrupt() { control?.stop(); notebook?.stop(); notebook = nil; notebookContext = nil }
+    func runCell(code: String, name: String, version: String, onText: @escaping @Sendable (String, Bool) async -> Void) async throws -> Bool {
+        guard version.range(of: #"^\d+\.\d+\.\d+$"#, options: .regularExpression) != nil else { throw LabError.message("Invalid server Python version.") }
+        guard !cellBusy else { throw LabError.message("Local notebook kernel is busy.") }
+        cellBusy = true; defer { cellBusy = false }
+        let python = try await prepare(version: version)
+        let setting = UserDefaults.standard.string(forKey: "localWorkspace") ?? ""
+        let directory = setting.isEmpty ? root.appendingPathComponent("Workspace") : URL(fileURLWithPath: setting)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let context = version + "|" + python.path + "|" + directory.path
+        if notebookContext != context || notebook?.isRunning != true {
+            notebook?.stop(); notebook = try LocalNotebookProcess(python: python, directory: directory); notebookContext = context
+        }
+        guard let notebook else { throw LabError.message("Local notebook kernel could not start.") }
+        let result = try await notebook.execute(code: code, name: name)
+        if !result.stdout.isEmpty { await onText(result.stdout, false) }
+        if !result.stderr.isEmpty { await onText(result.stderr, true) }
+        if result.status != 0 { await onText("Local check failed (exit code 1); not sent to server.\n", true) }
+        return result.status == 0
+    }
     func run(code: String, name: String, version: String, onText: @escaping @Sendable (String, Bool) async -> Void) async throws -> Bool {
         guard version.range(of: #"^\d+\.\d+\.\d+$"#, options: .regularExpression) != nil else { throw LabError.message("無法取得伺服器的完整 Python 版本，已停止執行。") }
         let python = try await prepare(version: version)

@@ -65,9 +65,9 @@ struct NotebookDocument {
         }
         return includes(normalized(other), expected: normalized(self))
     }
-    mutating func setOutputs(at index: Int, outputs: [[String: Any]]) {
+    mutating func setOutputs(at index: Int, outputs: [[String: Any]], executionCount: Int? = nil) {
         guard cells.indices.contains(index), cells[index]["cell_type"] as? String == "code" else { return }
-        var items = cells; items[index]["outputs"] = outputs; items[index]["execution_count"] = NSNull(); root["cells"] = items
+        var items = cells; items[index]["outputs"] = outputs; items[index]["execution_count"] = executionCount.map { $0 as Any } ?? NSNull(); root["cells"] = items
     }
     mutating func clearOutputs() {
         for index in cells.indices where cells[index]["cell_type"] as? String == "code" { setOutputs(at: index, outputs: []) }
@@ -94,9 +94,11 @@ actor NotebookRunOutput {
     private var items: [[String: Any]] = []
     private var bytes = 0
     private var success = false
+    private var count: Int?
     func append(_ event: KernelEvent) {
         switch event {
-        case .clear: items = []; bytes = 0
+        case .executionCount(let value): count = value
+        case .clear: items = []; bytes = 0; count = nil; success = false
         case .completed(let ok): success = ok
         case .text(let text, let error):
             guard bytes + text.utf8.count <= 1_048_576, items.count < 100 else { return }
@@ -108,5 +110,5 @@ actor NotebookRunOutput {
             items.append(["output_type": "display_data", "metadata": [:], "data": ["image/png": data.base64EncodedString()]])
         }
     }
-    func result() -> (outputs: [[String: Any]], success: Bool) { (items, success) }
+    func result() -> (outputs: [[String: Any]], success: Bool, count: Int?) { (items, success, count) }
 }

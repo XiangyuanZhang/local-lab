@@ -23,7 +23,7 @@ enum NotebookMarkdown {
             switch cell["cell_type"] as? String {
             case "markdown": result.append(source)
             case "code":
-                result.append("### 程式碼單元格 \(index + 1)\n" + block(source, language: "python"))
+                result.append("### Code cell \(index + 1)\n" + block(source, language: "python"))
                 for output in cell["outputs"] as? [[String: Any]] ?? [] {
                     if output["output_type"] as? String == "stream" { result.append(block(text(output["text"]))) }
                     else if output["output_type"] as? String == "error" {
@@ -35,7 +35,7 @@ enum NotebookMarkdown {
                         if !plain.isEmpty { result.append(block(plain)) }
                         let png = text(data["image/png"]).filter { !$0.isWhitespace }
                         if png.count <= 7_000_000, let image = Data(base64Encoded: png), validPNG(image) {
-                            result.append("![Notebook 輸出圖片](data:image/png;base64,\(png))")
+                            result.append("![Notebook output image](data:image/png;base64,\(png))")
                         }
                     }
                 }
@@ -46,7 +46,7 @@ enum NotebookMarkdown {
         guard rendered.utf8.count <= 12_582_912 else { throw LabError.message("Notebook 預覽內容過大。") }
         return rendered
     }
-    private static func validPNG(_ data: Data) -> Bool {
+    static func validPNG(_ data: Data) -> Bool {
         guard data.count >= 24, data.starts(with: [137,80,78,71,13,10,26,10]),
               Array(data[12..<16]) == [73,72,68,82] else { return false }
         let width = data[16..<20].reduce(UInt64(0)) { ($0 << 8) | UInt64($1) }

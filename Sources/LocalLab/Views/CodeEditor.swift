@@ -6,6 +6,11 @@ struct CodeEditor: NSViewRepresentable {
     @Environment(\.workspaceHasBackground) private var hasBackground
     var fontSize: Double
     var python = true
+    var onFocus: (() -> Void)? = nil
+    var onRun: ((Bool) -> Void)? = nil
+    var onEscape: (() -> Void)? = nil
+    var focusRequested = false
+    var accessibilityName = "Python 程式編輯器"
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = WrappingCodeScrollView()
@@ -33,7 +38,8 @@ struct CodeEditor: NSViewRepresentable {
         editor.autoresizingMask = [.width]
         editor.textContainer?.widthTracksTextView = true
         editor.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
-        editor.setAccessibilityLabel("Python 程式編輯器")
+        editor.setAccessibilityLabel(accessibilityName)
+        editor.onFocus = onFocus; editor.onRun = onRun; editor.onEscape = onEscape
         editor.string = text; editor.delegate = context.coordinator
         scroll.drawsBackground = !hasBackground; scroll.contentView.drawsBackground = !hasBackground; editor.drawsBackground = !hasBackground
         scroll.documentView = editor; context.coordinator.highlight(editor)
@@ -41,13 +47,19 @@ struct CodeEditor: NSViewRepresentable {
     }
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.parent = self
-        guard let editor = scroll.documentView as? NSTextView else { return }
+        guard let editor = scroll.documentView as? PythonTextView else { return }
+        editor.onFocus = onFocus; editor.onRun = onRun; editor.onEscape = onEscape
+        if focusRequested && !context.coordinator.focusRequested {
+            DispatchQueue.main.async { [weak editor] in if let editor { editor.window?.makeFirstResponder(editor) } }
+        }
+        context.coordinator.focusRequested = focusRequested
         scroll.drawsBackground = !hasBackground; scroll.contentView.drawsBackground = !hasBackground; editor.drawsBackground = !hasBackground
         if editor.string != text { editor.string = text; editor.undoManager?.removeAllActions(); context.coordinator.highlight(editor) }
         if editor.font?.pointSize != CGFloat(fontSize) { editor.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular) }
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
+        var focusRequested = false
         var parent: CodeEditor
         init(_ parent: CodeEditor) { self.parent = parent }
         func textDidChange(_ notification: Notification) {
@@ -88,6 +100,22 @@ struct CodeEditor: NSViewRepresentable {
     }
 }
 final class PythonTextView: NSTextView {
+    var onFocus: (() -> Void)?
+    var onRun: ((Bool) -> Void)?
+    var onEscape: (() -> Void)?
+    override func becomeFirstResponder() -> Bool {
+        let result = super.becomeFirstResponder()
+        if result { onFocus?() }; return result
+    }
+    override func keyDown(with event: NSEvent) {
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if [36, 76].contains(event.keyCode), let onRun, modifiers.contains(.command) || modifiers.contains(.control) || modifiers.contains(.shift) {
+            window?.makeFirstResponder(nil)
+            onRun(modifiers.contains(.shift)); return
+        }
+        if event.keyCode == 53, let onEscape { onEscape(); return }
+        super.keyDown(with: event)
+    }
     override func insertTab(_ sender: Any?) { insertText("    ", replacementRange: selectedRange()) }
 }
 

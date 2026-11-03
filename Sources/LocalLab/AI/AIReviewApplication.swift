@@ -7,7 +7,7 @@ extension WorkspaceStore {
         guard result.hasChanges, let code = result.proposedCode else { throw AIReviewError.noChanges }
         guard runningID == nil, !fileBusy else { throw AIReviewError.documentBusy }
         guard selection == result.request.snapshot.draftID, result.request.snapshot.matches(selected) else { throw AIReviewError.documentChanged }
-        updateCode(code)
+        updateCode(try result.request.snapshot.document(applying: code))
         // Remote base content is deliberately preserved: ⌘S retains the existing conflict checks.
         persist()
     }
@@ -16,7 +16,7 @@ extension WorkspaceStore {
         guard runningID == nil, !fileBusy else { throw AIReviewError.documentBusy }
         guard let current = selected, selection == result.request.snapshot.draftID,
               current.name == result.request.snapshot.filename, current.remotePath == result.request.snapshot.remotePath,
-              current.code == applied else { throw AIReviewError.documentChanged }
-        updateCode(result.request.snapshot.code); persist()
+              current.code == (try result.request.snapshot.document(applying: applied)) else { throw AIReviewError.documentChanged }
+        updateCode(result.request.snapshot.documentCode); persist()
     }
 }

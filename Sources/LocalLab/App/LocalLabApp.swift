@@ -39,7 +39,8 @@ struct LocalLabApp: App {
             }
             CommandMenu("核心") {
                 Button("連線…") { store.showConnection = true }.disabled(store.busy || store.runningID != nil)
-                Button("執行程式") { store.run() }.keyboardShortcut(.return, modifiers: .command).disabled(!store.canRun)
+                Button("執行程式") { if store.isNotebookSelected { NSApp.keyWindow?.makeFirstResponder(nil) }; store.run() }.keyboardShortcut(.return, modifiers: .command).disabled(!store.canRun)
+                Button("執行單元格並前進") { NSApp.keyWindow?.makeFirstResponder(nil); store.runCurrentNotebookCell(advance: true) }.keyboardShortcut(.return, modifiers: .shift).disabled(!store.isNotebookSelected || !store.canRun)
                 Button("中斷執行") { store.interrupt() }.keyboardShortcut(".", modifiers: .command).disabled(store.runningID == nil)
                 Divider()
                 Button("執行完整功能測試") { store.runLiveVerification() }.disabled(!store.isReady || store.verifying)
@@ -57,6 +58,10 @@ final class LabDelegate: NSObject, NSApplicationDelegate {
     weak var ai: AIReviewStore?
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        // Explicitly refresh the running Dock tile after an in-place app update.
+        if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"), let icon = NSImage(contentsOf: url) {
+            NSApp.applicationIconImage = icon; NSApp.dockTile.display()
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }

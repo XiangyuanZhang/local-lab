@@ -5,6 +5,7 @@ struct AIReviewPane: View {
     @ObservedObject var workspace: WorkspaceStore
     @EnvironmentObject private var appearance: AppearanceStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var currentCellOnly = true
     @State private var preview: AIReviewResult?
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -62,6 +63,16 @@ struct AIReviewPane: View {
         VStack(alignment: .leading, spacing: 12) {
             Label(workspace.selected?.name ?? "尚未選取檔案", systemImage: "doc.text")
                 .font(.callout.weight(.medium)).lineLimit(1).truncationMode(.middle)
+            if workspace.isNotebookSelected {
+                Picker("審碼範圍", selection: $currentCellOnly) {
+                    Text("目前／剛執行的程式碼單元格").tag(true)
+                    Text("整份 Notebook").tag(false)
+                }.disabled(store.isRunning).accessibilityIdentifier("ai-scope")
+                if currentCellOnly {
+                    Text(workspace.reviewNotebookCellIndex.map { "Cell \($0 + 1) · Only this cell will be sent" } ?? "Select or run a code cell first")
+                        .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("ai-cell-target")
+                }
+            }
             Picker("審碼模式", selection: Binding(get: { store.configuration.mode }, set: store.selectMode)) {
                 ForEach(AIReviewMode.allCases) { mode in Text(mode.title).tag(mode) }
             }.pickerStyle(.segmented).labelsHidden().disabled(store.isRunning).accessibilityIdentifier("ai-mode")
@@ -79,15 +90,15 @@ struct AIReviewPane: View {
                 if store.isRunning {
                     Button("取消請求", role: .cancel) { store.cancel() }.buttonStyle(PressableStyle()).accessibilityIdentifier("ai-cancel")
                 } else {
-                    Button { store.start(draft: workspace.selected) } label: { Label(store.configuration.mode.actionTitle, systemImage: "sparkles") }
+                    Button { store.start(draft: workspace.selected, notebookCellIndex: workspace.isNotebookSelected && currentCellOnly ? workspace.reviewNotebookCellIndex : nil) } label: { Label(store.configuration.mode.actionTitle, systemImage: "sparkles") }
                         .buttonStyle(.borderedProminent)
-                        .disabled(workspace.selected == nil || workspace.selected?.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true)
+                        .disabled(workspace.selected == nil || workspace.selected?.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true || (workspace.isNotebookSelected && currentCellOnly && workspace.reviewNotebookCellIndex == nil))
                         .accessibilityIdentifier("ai-start")
                 }
                 Spacer()
                 Text(store.configuration.model).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             }
-            Text("只會發送目前檔案、人格與本次要求至 \(provider)。不會自動儲存到遠端或執行程式。")
+            Text("只會發送選定範圍的程式碼、人格與本次要求至 \(provider)。不會自動儲存到遠端或執行程式。")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -110,6 +121,7 @@ struct AIReviewPane: View {
                 Text(result.request.persona.name).font(.caption).foregroundStyle(.secondary)
                 Spacer()
             }
+            if let cell = result.request.snapshot.notebookCellIndex { Text("Reviewed: Cell \(cell + 1)").font(.caption).foregroundStyle(.secondary) }
             Text(result.response.summary).font(.callout).textSelection(.enabled).accessibilityIdentifier("ai-summary")
             if !result.request.snapshot.matches(workspace.selected) {
                 Label("這份結果的檔案內容已變更，需重新審碼才能套用。", systemImage: "clock.arrow.circlepath")

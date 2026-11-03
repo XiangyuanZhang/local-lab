@@ -231,7 +231,9 @@ actor JupyterClient: KernelService, RemoteFileService {
                 else if let text = data["text/plain"] as? String { await onEvent(.text(text + "\n", isError: false)) }
             case "clear_output":
                 if c["wait"] as? Bool == true { clearPending = true } else { await onEvent(.clear) }
-            case "execute_reply": reply = c["status"] as? String == "ok"
+            case "execute_reply":
+                if let count = c["execution_count"] as? Int { await onEvent(.executionCount(count)) }
+                reply = c["status"] as? String == "ok"
             case "status": if c["execution_state"] as? String == "idle" { idle = true }
             default: break
             }
