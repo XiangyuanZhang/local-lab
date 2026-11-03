@@ -2,6 +2,10 @@ import SwiftUI
 
 struct NotebookEditor: View {
     @Binding var text: String
+    let canRun: Bool
+    let isRunning: Bool
+    let runThrough: (Int) -> Void
+    let clearOutputs: () -> Void
     @State private var document: NotebookDocument?
     @State private var snapshot = ""
     @State private var message: String?
@@ -13,7 +17,9 @@ struct NotebookEditor: View {
                     Text("編輯").tag(false); Text("預覽").tag(true)
                 }.pickerStyle(.segmented).labelsHidden().frame(width: 160)
                 Spacer()
-                Text("▶ 執行全部 · 結果顯示於下方").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Button(action: clearOutputs) { Image(systemName: "eraser").frame(width: 32, height: 28).contentShape(Rectangle()) }
+                    .buttonStyle(.plain).disabled(isRunning).help("清除 Notebook 輸出，保留題目與程式碼")
+                    .accessibilityLabel("清除 Notebook 輸出")
             }.padding(12)
             if let message { Text(message).foregroundStyle(.red).padding(8) }
             if preview { NotebookPreview(text: text) }
@@ -24,7 +30,7 @@ struct NotebookEditor: View {
                             NotebookCellEditor(index: index, kind: document.cells[index]["cell_type"] as? String ?? "raw", source: Binding(
                                 get: { self.document?.source(at: index) ?? "" },
                                 set: { value in change { $0.updateSource(at: index, text: value) } }
-                            ), remove: { change { $0.remove(at: index) } })
+                            ), canRun: canRun, run: { runThrough(index) }, remove: { change { $0.remove(at: index) } })
                         }
                         HStack {
                             Button("新增程式碼", systemImage: "plus") { change { $0.append(kind: "code") } }
@@ -36,7 +42,6 @@ struct NotebookEditor: View {
         }
         .onAppear { load() }
         .onChange(of: text) { _, _ in if text != snapshot { load() } }
-        .accessibilityLabel("Notebook 單元格編輯器")
     }
     private func load() {
         do { document = try NotebookDocument(text); snapshot = text; message = nil }
@@ -56,12 +61,20 @@ private struct NotebookCellEditor: View {
     let index: Int
     let kind: String
     @Binding var source: String
+    let canRun: Bool
+    let run: () -> Void
     let remove: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("\(index + 1) · \(kind == "code" ? "Python" : kind == "markdown" ? "Markdown" : "Raw")").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer()
+                if kind == "code" {
+                    Button(action: run) { Label("執行至此", systemImage: "play.fill") }
+                        .buttonStyle(.borderless).disabled(!canRun)
+                        .help("從第一個程式碼單元格執行到這裡；先本機檢查，再伺服器覆核")
+                        .accessibilityLabel("執行至單元格 \(index + 1)")
+                }
                 Button(action: remove) { Image(systemName: "trash").frame(width: 32, height: 28).contentShape(Rectangle()) }
                     .buttonStyle(.plain).help("刪除單元格 \(index + 1)").accessibilityLabel("刪除單元格 \(index + 1)")
             }
