@@ -69,18 +69,21 @@ struct NotebookDocument {
         guard cells.indices.contains(index), cells[index]["cell_type"] as? String == "code" else { return }
         var items = cells; items[index]["outputs"] = outputs; items[index]["execution_count"] = NSNull(); root["cells"] = items
     }
-    func pythonCells() throws -> [(index: Int, code: String)] {
-        _ = try pythonCode()
-        return cells.indices.filter { cells[$0]["cell_type"] as? String == "code" && !source(at: $0).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.map { ($0, source(at: $0)) }
+    mutating func clearOutputs() {
+        for index in cells.indices where cells[index]["cell_type"] as? String == "code" { setOutputs(at: index, outputs: []) }
     }
-    func pythonCode() throws -> String {
+    func pythonCells(through last: Int? = nil) throws -> [(index: Int, code: String)] {
+        _ = try pythonCode(through: last)
+        return cells.indices.filter { ($0 <= (last ?? Int.max)) && cells[$0]["cell_type"] as? String == "code" && !source(at: $0).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.map { ($0, source(at: $0)) }
+    }
+    func pythonCode(through last: Int? = nil) throws -> String {
         let metadata = root["metadata"] as? [String: Any] ?? [:]
         let language = (metadata["language_info"] as? [String: Any])?["name"] as? String
         let kernelLanguage = (metadata["kernelspec"] as? [String: Any])?["language"] as? String
         if let language = language ?? kernelLanguage, !language.lowercased().hasPrefix("python") {
             throw LabError.message("目前只能執行 Python Notebook。")
         }
-        let code = cells.indices.filter { cells[$0]["cell_type"] as? String == "code" }.map { source(at: $0) }.joined(separator: "\n\n")
+        let code = cells.indices.filter { ($0 <= (last ?? Int.max)) && cells[$0]["cell_type"] as? String == "code" }.map { source(at: $0) }.joined(separator: "\n\n")
         guard !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw LabError.message("Notebook 沒有可執行的程式碼。") }
         return code
     }

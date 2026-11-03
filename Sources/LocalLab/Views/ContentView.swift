@@ -168,7 +168,7 @@ struct ContentView: View {
         .sheet(isPresented: $store.createFilePresented) { RemoteNameSheet(store: store, action: .createFile) }
         .sheet(isPresented: $store.createFolderPresented) { RemoteNameSheet(store: store, action: .createFolder) }
         .onChange(of: store.selection) { _, _ in Task { await store.handleSelection() } }
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.sourceCode, .plainText]) { result in
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.sourceCode, .plainText, UTType(filenameExtension: "ipynb") ?? .json]) { result in
             switch result { case .success(let url): store.importScript(url: url); case .failure(let error): store.error = error.localizedDescription }
         }
         .fileExporter(isPresented: $exporting, document: PythonDocument(code: store.selected?.code ?? ""), contentType: UTType(filenameExtension: (store.selected?.name as NSString?)?.pathExtension ?? "py") ?? .plainText, defaultFilename: store.selected?.name ?? "script.py") { result in
@@ -194,7 +194,7 @@ struct ContentView: View {
         Button { withAnimation(reduceMotion ? nil : Motion.gentle) { sidebarVisible.toggle() } } label: {
             Image(systemName: "sidebar.left")
                 .font(.system(size: 14, weight: .medium))
-                .frame(width: 24, height: 24)
+                .frame(width: 36, height: 32).contentShape(Rectangle())
         }
         .help(sidebarVisible ? "收起側邊欄" : "展開側邊欄")
         .accessibilityLabel("側邊欄")
@@ -203,7 +203,7 @@ struct ContentView: View {
 
     @ViewBuilder private var workspaceActions: some View {
         if store.runningID != nil {
-            Button { store.interrupt() } label: { Label("中斷", systemImage: "stop.fill") }.help("中斷 App 專用核心（⌘ .）")
+            Button { store.interrupt() } label: { Label("中斷", systemImage: "stop.fill").frame(minWidth: 36, minHeight: 32).contentShape(Rectangle()) }.help("中斷 App 專用核心（⌘ .）")
         }
         if store.selected?.remotePath != nil {
             Button { Task { await store.saveSelectedRemote() } } label: { Label("儲存至遠端", systemImage: "icloud.and.arrow.up").frame(minWidth: 36, minHeight: 32).contentShape(Rectangle()) }.disabled(!store.isReady || store.fileBusy || store.selected?.isRemoteDirty != true)
@@ -213,9 +213,11 @@ struct ContentView: View {
         Button { store.run() } label: { Label("執行", systemImage: "play.fill").frame(minWidth: 36, minHeight: 32).contentShape(Rectangle()) }.disabled(!store.canRun).help("執行目前草稿（⌘ Return）")
         Button { store.showConnection = true } label: { Label(store.isReady ? "連線資訊" : "連線", systemImage: "network").frame(minWidth: 36, minHeight: 32).contentShape(Rectangle()) }.disabled(store.busy || store.runningID != nil)
         Menu {
+            Button("新增練習 Notebook", systemImage: "book.badge.plus") { store.newNotebook() }
+            Divider()
             Button("更换背景…", systemImage: "photo") { store.showBackgroundEditor = true }
             Divider()
-            Button("匯入文字或 Python 檔案…", systemImage: "square.and.arrow.down") { importing = true }
+            Button("匯入文字、Python 或 Notebook…", systemImage: "square.and.arrow.down") { importing = true }
             Button("匯出目前草稿…", systemImage: "square.and.arrow.up") { exporting = true }.disabled(store.selected == nil)
             Button("新增遠端檔案…", systemImage: "doc.badge.plus") { store.createFilePresented = true }.disabled(!store.isReady || store.fileBusy)
             Button("另存至遠端…", systemImage: "icloud.and.arrow.up") { store.saveRemotePresented = true }.disabled(!store.isReady || store.fileBusy || store.selected == nil)
@@ -417,7 +419,7 @@ struct EditorPane: View {
                     .padding(.horizontal, 20).padding(.top, 8)
             }
             if isNotebook {
-                NotebookEditor(text: Binding(get: { store.selected?.code ?? "" }, set: { store.updateCode($0) }))
+                NotebookEditor(text: Binding(get: { store.selected?.code ?? "" }, set: { store.updateCode($0) }), canRun: store.canRun, isRunning: store.runningID != nil, runThrough: { store.run(notebookThrough: $0) }, clearOutputs: { store.clearNotebookOutputs() })
                     .id(store.selected?.id)
             } else if isMarkdown && markdownMode == 0 {
                 MarkdownPreview(text: store.selected?.code ?? "")

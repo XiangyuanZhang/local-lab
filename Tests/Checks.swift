@@ -100,6 +100,19 @@ struct Checks {
             let ranNotebook = try NotebookDocument(store.selected!.code)
             try check(fake.executeCount == 3 && (ranNotebook.cells[0]["outputs"] as? [Any])?.count == 1 && (ranNotebook.cells[2]["outputs"] as? [Any])?.count == 1, "Notebook cell execution or captured outputs failed")
             passed.append("notebook_local_gate_sequential_cells_and_saved_outputs")
+            store.run(notebookThrough: 0)
+            for _ in 0..<100 { if store.runningID == nil { break }; try await Task.sleep(nanoseconds: 1_000_000) }
+            try check(fake.executeCount == 4, "Run-through executed cells beyond the requested boundary")
+            let beforeClear = try NotebookDocument(store.selected!.code)
+            store.clearNotebookOutputs()
+            let clearedNotebook = try NotebookDocument(store.selected!.code)
+            try check(try clearedNotebook.pythonCode() == beforeClear.pythonCode() && clearedNotebook.cells.allSatisfy { ($0["outputs"] as? [Any] ?? []).isEmpty }, "Clearing outputs changed sources or left stale outputs")
+            let previousCount = store.drafts.count
+            store.newNotebook(); let firstPractice = store.selected!.name
+            store.newNotebook()
+            try check(store.drafts.count == previousCount + 2 && store.selected!.name != firstPractice && store.selected!.remotePath == nil && (try NotebookDocument(store.selected!.code)).cells.count == 2, "New practice Notebook failed to remain local or avoid name collisions")
+            try check(try runnable.pythonCode(through: 0) == "x = 40", "Run-through preflight included later code")
+            passed.append("notebook_learning_new_clear_and_run_through")
             let cleaned = await store.disconnect()
             try check(cleaned && fake.cleaned == ["app-owned"] && store.connection == nil, "Wrong kernel cleanup")
             passed.append("execution_state_and_owned_kernel_cleanup")

@@ -140,7 +140,9 @@ final class WorkspaceStore: ObservableObject {
         let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         do {
             let data = try Data(contentsOf: url)
-            guard data.count <= 1_048_576, let code = String(data: data, encoding: .utf8) else { throw LabError.message("請選擇小於 1 MB 的 UTF-8 文字檔案。") }
+            let notebook = url.pathExtension.lowercased() == "ipynb"
+            guard data.count <= (notebook ? 8_388_608 : 1_048_576), let code = String(data: data, encoding: .utf8) else { throw LabError.message("請選擇 UTF-8 文字檔（最大 1 MB）或 Notebook（最大 8 MB）。") }
+            if notebook { _ = try NotebookDocument(code) }
             let draft = ScriptDraft(name: url.lastPathComponent, code: code)
             drafts.append(draft); selection = draft.id; persist()
         } catch { self.error = error.localizedDescription }
@@ -161,10 +163,28 @@ final class WorkspaceStore: ObservableObject {
         }
         catch { self.error = safeError(error); return false }
     }
-    func run() {
+    func newNotebook() {
+        var n = 1
+        while drafts.contains(where: { $0.name == "practice-\(n).ipynb" }) { n += 1 }
+        do {
+            var document = try NotebookDocument(NotebookDocument.empty)
+            document.append(kind: "markdown"); document.updateSource(at: 0, text: "# 練習筆記\n\n在這裡記錄題目與想法。")
+            document.append(kind: "code")
+            let draft = ScriptDraft(name: "practice-\(n).ipynb", code: try document.serialized())
+            drafts.append(draft); selection = draft.id; persist()
+        } catch { self.error = error.localizedDescription }
+    }
+    func clearNotebookOutputs() {
+        guard runningID == nil, let draft = selected, draft.name.lowercased().hasSuffix(".ipynb") else { return }
+        do {
+            var document = try NotebookDocument(draft.code); document.clearOutputs()
+            updateCode(try document.serialized()); clearOutput(); persist()
+        } catch { self.error = error.localizedDescription }
+    }
+    func run(notebookThrough: Int? = nil) {
         guard canRun, let draft = selected else { return }
         let executable: String
-        do { executable = draft.name.lowercased().hasSuffix(".ipynb") ? try NotebookDocument(draft.code).pythonCode() : draft.code }
+        do { executable = draft.name.lowercased().hasSuffix(".ipynb") ? try NotebookDocument(draft.code).pythonCode(through: notebookThrough) : draft.code }
         catch { self.error = error.localizedDescription; return }
         bottomPanel = .output
         outputs[draft.id] = []; runStates[draft.id] = "本機執行中"; runningID = draft.id
@@ -184,7 +204,7 @@ final class WorkspaceStore: ObservableObject {
                 if draft.name.lowercased().hasSuffix(".ipynb") {
                     var notebook = try NotebookDocument(draft.code)
                     var baseline = draft.code
-                    for cell in try notebook.pythonCells() {
+                    for cell in try notebook.pythonCells(through: notebookThrough) {
                         try Task.checkCancellation()
                         runStates[draft.id] = "伺服器覆核中"
                         consume(.text("\n單元格 \(cell.index + 1)\n", isError: false), id: draft.id)
