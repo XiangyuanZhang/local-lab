@@ -86,6 +86,20 @@ struct Checks {
             try check(fake.executeCount == 1 && store.runStates[store.selection!] == "本機錯誤 · 未送出" && store.isReady, "Failed local code was sent to server")
             passed.append("local_failure_never_calls_remote_execution")
             await localGate.setSuccess(true)
+            var runnable = try NotebookDocument(NotebookDocument.empty)
+            runnable.append(kind: "code"); runnable.updateSource(at: 0, text: "x = 40")
+            runnable.append(kind: "markdown"); runnable.updateSource(at: 1, text: "# not executable")
+            runnable.append(kind: "code"); runnable.updateSource(at: 2, text: "print(x + 2)")
+            let notebookDraft = ScriptDraft(name: "check.ipynb", code: try runnable.serialized())
+            store.drafts.append(notebookDraft); store.selection = notebookDraft.id
+            await localGate.setSuccess(false); store.run()
+            for _ in 0..<100 { if store.runningID == nil { break }; try await Task.sleep(nanoseconds: 1_000_000) }
+            try check(fake.executeCount == 1, "Notebook bypassed local failure gate")
+            await localGate.setSuccess(true); store.run()
+            for _ in 0..<100 { if store.runningID == nil { break }; try await Task.sleep(nanoseconds: 1_000_000) }
+            let ranNotebook = try NotebookDocument(store.selected!.code)
+            try check(fake.executeCount == 3 && (ranNotebook.cells[0]["outputs"] as? [Any])?.count == 1 && (ranNotebook.cells[2]["outputs"] as? [Any])?.count == 1, "Notebook cell execution or captured outputs failed")
+            passed.append("notebook_local_gate_sequential_cells_and_saved_outputs")
             let cleaned = await store.disconnect()
             try check(cleaned && fake.cleaned == ["app-owned"] && store.connection == nil, "Wrong kernel cleanup")
             passed.append("execution_state_and_owned_kernel_cleanup")
@@ -143,6 +157,21 @@ struct Checks {
                 var rejected = false
                 do { _ = try NotebookMarkdown.render("{\"nbformat\":3,\"cells\":[]}") } catch { rejected = true }
                 try check(rejected, "Unsupported notebook format was accepted")
+                var editable = try NotebookDocument(json)
+                editable.updateSource(at: 1, text: "value = 40\nprint(value + 2)")
+                let edited = try editable.serialized()
+                try check(try NotebookDocument(edited).pythonCode() == "value = 40\nprint(value + 2)", "Notebook execution must exclude Markdown")
+                try check((editable.cells[1]["outputs"] as? [Any])?.isEmpty == true, "Edited cell retained stale output")
+                editable.append(kind: "markdown"); editable.remove(at: 2)
+                try check(editable.cells.count == 2 && editable.source(at: 999).isEmpty, "Cell mutation or stale binding bounds failed")
+                var normalized = editable.root; var normalizedCells = editable.cells
+                normalizedCells[1]["source"] = ["value = 40\n", "print(value + 2)"]
+                normalized["cells"] = normalizedCells
+                let normalizedJSON = String(decoding: try JSONSerialization.data(withJSONObject: normalized), as: UTF8.self)
+                try check(try editable.matchesSaved(normalizedJSON), "Server source normalization was rejected")
+                normalizedCells[1]["source"] = "different"; normalized["cells"] = normalizedCells
+                try check(try !editable.matchesSaved(String(decoding: JSONSerialization.data(withJSONObject: normalized), as: UTF8.self)), "Lost source data was accepted")
+                passed.append("notebook_edit_preservation_execution_and_server_normalization")
                 passed.append("notebook_passive_preview_cells_outputs_fences_and_invalid_format")
             }
             if let endpoint = ProcessInfo.processInfo.environment["LOCAL_LAB_TEST_API"], let url = URL(string: endpoint) {
@@ -160,8 +189,18 @@ struct Checks {
                 try check(preview.contains("# Notebook in App") && preview.contains("print(42)") && preview.contains("42\n"), "Notebook cells and saved output did not render")
                 var notebookWriteRejected = false
                 do { _ = try await client.saveRemoteFile(path: "Lecture.ipynb", content: "bad replacement", expectedContent: notebook.content) }
-                catch { notebookWriteRejected = error.localizedDescription.contains("唯讀") }
-                try check(notebookWriteRejected, "Notebook must not be overwritten as a text file")
+                catch { notebookWriteRejected = true }
+                try check(notebookWriteRejected, "Invalid JSON must not overwrite Notebook")
+                var editedNotebook = try NotebookDocument(notebook.content)
+                editedNotebook.updateSource(at: 1, text: "print(43)")
+                let savedNotebook = try await client.saveRemoteFile(path: "Lecture.ipynb", content: editedNotebook.serialized(), expectedContent: notebook.content)
+                try check(savedNotebook.entry.type == "notebook" && savedNotebook.content.contains("print(43)"), "Notebook PUT lost type or edited source")
+                do {
+                    _ = try await client.saveRemoteFile(path: "Lecture.ipynb", content: notebook.content, expectedContent: notebook.content)
+                    throw CheckFailure(message: "Stale Notebook save was accepted")
+                } catch is RemoteConflict {}
+                let newNotebook = try await client.createRemoteFile(path: "New.ipynb", content: "")
+                try check(newNotebook.entry.type == "notebook", "New Notebook was stored as text")
                 let original = try await client.remoteFile("Notes.md")
                 try check(original.content == "original remote text", "Remote text read failed")
                 let edited = try await client.saveRemoteFile(path: "Notes.md", content: "updated remote text", expectedContent: original.content)
@@ -197,8 +236,8 @@ struct Checks {
                 try check(treeConnected && treeStore.remoteTreeRoots.contains { $0.path == "Notes.md" }, "Sidebar root failed to sync")
                 let notebookEntry = try await treeClient.remoteFile("Lecture.ipynb")
                 await treeStore.openRemote(notebookEntry.entry)
-                try check(treeStore.selected?.remotePath == "Lecture.ipynb" && treeStore.selected?.code == notebookEntry.content && !treeStore.canRun, "Notebook selection did not stay inside the App")
-                passed.append("notebook_API_readonly_selection_stays_in_app")
+                try check(treeStore.selected?.remotePath == "Lecture.ipynb" && treeStore.selected?.code == notebookEntry.content && treeStore.canRun, "Notebook selection did not stay inside the App")
+                passed.append("notebook_API_editable_selection_stays_in_app")
                 treeStore.selection = WorkspaceStore.remoteBrowserID
                 treeStore.remoteDirectoryPath = "datasets"
                 let createdWithoutDraft = await treeStore.createRemoteDocument(name: "新檔案 ?.md")
