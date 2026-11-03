@@ -20,7 +20,7 @@ struct BottomPanelView: View {
                             .background {
                                 if store.bottomPanel == panel {
                                     Capsule(style: .continuous)
-                                        .fill(Color.white.opacity(0.62))
+                                        .fill(Aurora.selectionFill)
                                         .overlay(Capsule(style: .continuous).strokeBorder(Aurora.accent.opacity(0.24), lineWidth: 0.7))
                                         .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 1)
                                         .matchedGeometryEffect(id: "bottom-pill", in: pill)
