@@ -3,7 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 struct PythonDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.plainText, .sourceCode] }
+    static var readableContentTypes: [UTType] { [.plainText, .sourceCode, .json, UTType(filenameExtension: "ipynb") ?? .json] }
     var code: String
     init(code: String) { self.code = code }
     init(configuration: ReadConfiguration) throws { code = String(decoding: configuration.file.regularFileContents ?? Data(), as: UTF8.self) }
