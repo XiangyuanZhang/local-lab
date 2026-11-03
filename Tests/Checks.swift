@@ -128,6 +128,23 @@ struct Checks {
                 try check(verified, "Markdown rendering or HTML safety check failed")
                 passed.append("local_markdown_rendering_safety_and_480_unchanged_updates_render_once")
             }
+            do {
+                let fixture: [String: Any] = ["nbformat": 4, "cells": [
+                    ["cell_type": "markdown", "source": ["# Notebook preview\n"]],
+                    ["cell_type": "code", "source": ["print(42)\n```"], "outputs": [
+                        ["output_type": "stream", "text": ["42\n"]],
+                        ["output_type": "error", "traceback": ["\u{001B}[31mValueError: test"]],
+                        ["output_type": "display_data", "data": ["text/html": "<script>unsafeNotebookOutput()</script>"]]
+                    ]]
+                ]]
+                let json = String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
+                let preview = try NotebookMarkdown.render(json)
+                try check(preview.contains("# Notebook preview") && preview.contains("````python") && preview.contains("42\n") && preview.contains("ValueError: test") && !preview.contains("unsafeNotebookOutput") && !preview.contains("\u{001B}"), "Notebook preview lost cells, broke code fences or admitted active HTML")
+                var rejected = false
+                do { _ = try NotebookMarkdown.render("{\"nbformat\":3,\"cells\":[]}") } catch { rejected = true }
+                try check(rejected, "Unsupported notebook format was accepted")
+                passed.append("notebook_passive_preview_cells_outputs_fences_and_invalid_format")
+            }
             if let endpoint = ProcessInfo.processInfo.environment["LOCAL_LAB_TEST_API"], let url = URL(string: endpoint) {
                 let client = JupyterClient(base: url)
                 let connection = try await client.connect(token: "integration-test-only")
@@ -138,6 +155,13 @@ struct Checks {
                 try check(text == "Hello from local API\n" && complete, "WebSocket request correlation failed")
                 let entries = try await client.remoteDirectory("")
                 try check(entries.first?.type == "directory" && entries.contains { $0.path == "Notes.md" }, "Directory order or listing failed")
+                let notebook = try await client.remoteFile("Lecture.ipynb")
+                let preview = try NotebookMarkdown.render(notebook.content)
+                try check(preview.contains("# Notebook in App") && preview.contains("print(42)") && preview.contains("42\n"), "Notebook cells and saved output did not render")
+                var notebookWriteRejected = false
+                do { _ = try await client.saveRemoteFile(path: "Lecture.ipynb", content: "bad replacement", expectedContent: notebook.content) }
+                catch { notebookWriteRejected = error.localizedDescription.contains("唯讀") }
+                try check(notebookWriteRejected, "Notebook must not be overwritten as a text file")
                 let original = try await client.remoteFile("Notes.md")
                 try check(original.content == "original remote text", "Remote text read failed")
                 let edited = try await client.saveRemoteFile(path: "Notes.md", content: "updated remote text", expectedContent: original.content)
@@ -171,6 +195,10 @@ struct Checks {
                 let treeStore = WorkspaceStore(service: treeClient, library: DraftLibrary(root: root.appendingPathComponent("tree")))
                 let treeConnected = await treeStore.connect(token: "integration-test-only")
                 try check(treeConnected && treeStore.remoteTreeRoots.contains { $0.path == "Notes.md" }, "Sidebar root failed to sync")
+                let notebookEntry = try await treeClient.remoteFile("Lecture.ipynb")
+                await treeStore.openRemote(notebookEntry.entry)
+                try check(treeStore.selected?.remotePath == "Lecture.ipynb" && treeStore.selected?.code == notebookEntry.content && !treeStore.canRun, "Notebook selection did not stay inside the App")
+                passed.append("notebook_API_readonly_selection_stays_in_app")
                 treeStore.selection = WorkspaceStore.remoteBrowserID
                 treeStore.remoteDirectoryPath = "datasets"
                 let createdWithoutDraft = await treeStore.createRemoteDocument(name: "新檔案 ?.md")
@@ -207,6 +235,9 @@ struct Checks {
                 let (_, deletedResponse) = try await URLSession.shared.data(for: deleteRequest)
                 try check((deletedResponse as? HTTPURLResponse)?.statusCode == 204, "Mock deletion failed")
                 await treeStore.refreshRemote()
+                if treeStore.selected?.remotePath != nil || treeStore.directoryCache["datasets"]?.isEmpty != true {
+                    print("Deletion diagnostic: name=\(treeStore.selected?.name ?? "nil") path=\(treeStore.selected?.remotePath ?? "nil") cache=\(treeStore.directoryCache["datasets"]?.map(\.path) ?? []) error=\(treeStore.error ?? "none")")
+                }
                 try check(treeStore.selected?.remotePath == nil && treeStore.selected?.code == "unsaved content before remote deletion" && treeStore.selection != deletedID && treeStore.selected?.name == "data.deleted-copy.py" && treeStore.directoryCache["datasets"]?.isEmpty == true, "Deleted remote file did not become a preserved local copy")
                 passed.append("remote_deletion_preserves_unsaved_local_content_and_removes_sidebar_item")
                 let treeCleaned = await treeStore.disconnect()

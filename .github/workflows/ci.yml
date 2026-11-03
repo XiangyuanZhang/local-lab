@@ -19,6 +19,11 @@ jobs:
         run: ./script/swift.sh build --configuration release
       - name: Existing workspace checks
         run: ./script/test.sh 2>&1 | tee .build/core-checks.log
+      - name: Jupyter and Notebook integration checks
+        run: |
+          python3 -m venv .build/jupyter-test-venv
+          .build/jupyter-test-venv/bin/python -m pip install -r Tests/requirements-jupyter.txt
+          .build/jupyter-test-venv/bin/python script/run_jupyter_tests.py 2>&1 | tee .build/jupyter-checks.log
       - name: AI review checks with isolated localhost API
         run: ./script/test_ai.sh 2>&1 | tee .build/ai-checks.log
       - name: Check release metadata
@@ -31,4 +36,5 @@ jobs:
           path: |
             .build/core-checks.log
             .build/ai-checks.log
+            .build/jupyter-checks.log
           retention-days: 14

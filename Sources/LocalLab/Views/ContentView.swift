@@ -367,6 +367,7 @@ struct EditorPane: View {
     @EnvironmentObject private var appearance: AppearanceStore
     @State private var markdownMode = 0
     @Namespace private var pill
+    private var isNotebook: Bool { store.selected?.name.lowercased().hasSuffix(".ipynb") == true }
     private var isMarkdown: Bool { ["md", "markdown"].contains((store.selected?.name as NSString?)?.pathExtension.lowercased() ?? "") }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -374,7 +375,7 @@ struct EditorPane: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(Aurora.accent.opacity(0.14))
-                    Image(systemName: isMarkdown ? "doc.richtext" : "chevron.left.forwardslash.chevron.right")
+                    Image(systemName: isNotebook ? "book.closed" : isMarkdown ? "doc.richtext" : "chevron.left.forwardslash.chevron.right")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Aurora.accent)
                 }
@@ -414,7 +415,9 @@ struct EditorPane: View {
                 Text(path).font(.caption.monospaced()).foregroundStyle(.secondary)
                     .padding(.horizontal, 20).padding(.top, 8)
             }
-            if isMarkdown && markdownMode == 0 {
+            if isNotebook {
+                NotebookPreview(text: store.selected?.code ?? "")
+            } else if isMarkdown && markdownMode == 0 {
                 MarkdownPreview(text: store.selected?.code ?? "")
                     .transition(.opacity)
             } else if isMarkdown && markdownMode == 2 {
@@ -442,7 +445,7 @@ struct EditorPane: View {
     }
 
     private var languageLabel: String {
-        store.selected?.name.lowercased().hasSuffix(".py") == true ? "Python" : (isMarkdown ? "Markdown" : "文字")
+        isNotebook ? "Notebook · 唯讀" : store.selected?.name.lowercased().hasSuffix(".py") == true ? "Python" : (isMarkdown ? "Markdown" : "文字")
     }
 
     private var syncLabel: String {

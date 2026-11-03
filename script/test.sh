@@ -15,6 +15,7 @@ xcrun swiftc -parse-as-library -swift-version 5 -target "$ARCH-apple-macosx14.0"
   "$ROOT_DIR/Sources/LocalLab/Services/LocalPythonRunner.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/ShellTerminal.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/MarkdownHTML.swift" \
+  "$ROOT_DIR/Sources/LocalLab/Services/NotebookMarkdown.swift" \
   "$ROOT_DIR/Tests/MarkdownCheck.swift" \
   "$ROOT_DIR/Sources/LocalLab/Services/BackgroundStore.swift" \
   "$ROOT_DIR/Sources/LocalLab/Views/MarkdownPreview.swift" \

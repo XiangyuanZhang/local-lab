@@ -82,6 +82,11 @@ extension WorkspaceStore {
             }
             persist()
         } catch is RemoteFileMissing {
+            // A confirmed missing file must disappear even if a folder refresh failed.
+            for directory in Array(directoryCache.keys) {
+                directoryCache[directory]?.removeAll { $0.path == path }
+            }
+            remoteEntries.removeAll { $0.path == path }
             guard let index = drafts.firstIndex(where: { $0.id == draft.id && $0.remotePath == path }) else { return }
             let fileURL = URL(fileURLWithPath: draft.name)
             let stem = fileURL.deletingPathExtension().lastPathComponent + ".deleted-copy"
@@ -106,12 +111,6 @@ extension WorkspaceStore {
     }
     func openRemote(_ entry: RemoteEntry) async {
         if entry.type == "directory" { await showRemoteDirectory(entry.path); return }
-        if entry.type == "notebook" {
-            var parts = URLComponents(string: "https://lecture.cs.tum.de:9000/user/go97lep/lab/tree/")!
-            parts.path += entry.path
-            if let url = parts.url { NSWorkspace.shared.open(url) }
-            return
-        }
         guard isReady, !fileBusy, let remoteFiles else { return }
         if let draft = drafts.first(where: { $0.remotePath == entry.path }) {
             selection = draft.id; await refreshRemote(); return

@@ -34,6 +34,12 @@ private final class SmokeKernel: KernelService {
             ws.remoteEntries = entries; ws.directoryCache[""] = entries
         }
 
+        if ProcessInfo.processInfo.environment["LOCAL_LAB_UI_CASE"] == "notebook" {
+            let source = "{\"nbformat\":4,\"nbformat_minor\":5,\"metadata\":{},\"cells\":[{\"cell_type\":\"markdown\",\"source\":[\"# Remote Notebook in App\\n\",\"**Notebook markdown** and Chinese 中文。\"],\"metadata\":{}},{\"cell_type\":\"code\",\"source\":[\"print(42)\\n\"],\"metadata\":{},\"execution_count\":1,\"outputs\":[{\"output_type\":\"stream\",\"name\":\"stdout\",\"text\":[\"42\\n\"]}]}]}"
+            let entry = RemoteEntry(name: "Notebook.ipynb", path: "Notebook.ipynb", type: "notebook", writable: true, lastModified: "2026-11-03T07:00:00Z", size: source.utf8.count)
+            let document = ScriptDraft(id: entry.selectionID, name: entry.name, code: source, remotePath: entry.path, remoteBaseContent: source)
+            ws.drafts.append(document); ws.selection = document.id; ws.remoteEntries = [entry]; ws.directoryCache[""] = [entry]
+        }
         _workspace = StateObject(wrappedValue: ws)
         _background = StateObject(wrappedValue: BackgroundStore(directory: root.appendingPathComponent("Background")))
         let repo = AIReviewRepository(directory: root.appendingPathComponent("AIReview"))

@@ -1,4 +1,4 @@
-import asyncio,json,sys,copy
+import asyncio,json,sys,copy,os
 from aiohttp import web
 existing=[{'id':'existing-one','name':'python3'},{'id':'existing-two','name':'python3'}]
 created=False
@@ -30,6 +30,7 @@ async def channels(r):
    await send('status',{'execution_state':'idle'})
  return ws
 INITIAL_FILES={
+ 'Lecture.ipynb':{'type':'notebook','content':{'nbformat':4,'nbformat_minor':5,'metadata':{},'cells':[{'cell_type':'markdown','source':['# Notebook in App\n'],'metadata':{}},{'cell_type':'code','source':['print(42)\n'],'metadata':{},'execution_count':1,'outputs':[{'output_type':'stream','name':'stdout','text':['42\n']}]}]}},
  'Notes.md':{'type':'file','content':'original remote text'},
  'datasets':{'type':'directory'},
  'datasets/data.py':{'type':'file','content':'print(7)\n'}
@@ -62,4 +63,5 @@ app.router.add_get('/api/kernelspecs',specs)
 app.router.add_route('*','/api/kernels/{id}',kernel)
 app.router.add_post('/api/kernels/{id}/interrupt',interrupt)
 app.router.add_get('/api/kernels/{id}/channels',channels)
-web.run_app(app,host='127.0.0.1',port=18768,print=lambda x: print('Mock ready: 127.0.0.1:18768',flush=True),access_log=None)
+port=int(os.environ.get('LOCAL_LAB_TEST_MOCK_PORT','18768'))
+web.run_app(app,host='127.0.0.1',port=port,print=lambda x: print(f'Mock ready: 127.0.0.1:{port}',flush=True),access_log=None)
