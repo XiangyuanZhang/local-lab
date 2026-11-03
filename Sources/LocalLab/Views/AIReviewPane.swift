@@ -121,6 +121,7 @@ struct AIReviewPane: View {
                 Text(result.request.persona.name).font(.caption).foregroundStyle(.secondary)
                 Spacer()
             }
+            if let cell = result.request.snapshot.notebookCellIndex { Text("Reviewed: Cell \(cell + 1)").font(.caption).foregroundStyle(.secondary) }
             Text(result.response.summary).font(.callout).textSelection(.enabled).accessibilityIdentifier("ai-summary")
             if !result.request.snapshot.matches(workspace.selected) {
                 Label("這份結果的檔案內容已變更，需重新審碼才能套用。", systemImage: "clock.arrow.circlepath")

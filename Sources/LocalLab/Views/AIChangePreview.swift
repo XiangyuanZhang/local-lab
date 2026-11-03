@@ -22,7 +22,7 @@ struct AIChangePreview: View {
             HStack {
                 Label("修改預覽", systemImage: "doc.text.magnifyingglass").font(.title2.weight(.semibold))
                 Spacer()
-                Text(result.request.snapshot.filename).font(.callout).foregroundStyle(.secondary).lineLimit(1)
+                Text(result.request.snapshot.displayName).font(.callout).foregroundStyle(.secondary).lineLimit(1)
             }.padding(22)
             HStack {
                 Picker("預覽方式", selection: $tab) {

@@ -126,6 +126,10 @@ struct Checks {
             try check(fake.executeCount == countBefore + 1 && fake.executedCode.last == "x = 42", "Current cell run executed an earlier intentional error")
             store.selectNotebookCell(2, editing: true); store.run()
             try check(fake.executeCount == countBefore + 1 && store.notebookEditing[selectedDraft.id] == nil && store.reviewNotebookCellIndex == 1, "Markdown run did not render locally or lost recent code review target")
+            store.selectNotebookCell(1); store.runCurrentNotebookCell(advance: true)
+            for _ in 0..<100 { if store.runningID == nil { break }; try await Task.sleep(nanoseconds: 1_000_000) }
+            store.runCurrentNotebookCell(advance: true)
+            try check(store.notebookSelection[selectedDraft.id] == 3 && store.reviewNotebookCellIndex == 1, "Advancing into an empty new cell lost the last executed AI target")
             passed.append("current_cell_only_markdown_render_and_recent_AI_target")
             let worker = try LocalNotebookProcess(python: URL(fileURLWithPath: "/usr/bin/python3"), directory: root)
             defer { worker.stop() }

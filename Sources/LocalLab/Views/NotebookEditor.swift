@@ -23,7 +23,7 @@ struct NotebookEditor: View {
                         LazyVStack(spacing: 10) {
                             ForEach(document.cells.indices, id: \.self) { index in
                                 NotebookCellView(index: index, document: document, store: store,
-                                    source: Binding(get: { self.document?.source(at: index) ?? "" }, set: { value in change { $0.updateSource(at: index, text: value) } }),
+                                    source: Binding(get: { self.document?.source(at: index) ?? "" }, set: { value in change { $0.updateSource(at: index, text: value) }; store.selectNotebookCell(index, editing: true) }),
                                     remove: { change { $0.remove(at: index) }; if let id = store.selection { store.notebookSelection[id] = nil; store.notebookEditing[id] = nil; store.notebookRecentCode[id] = nil } })
                                     .id(index)
                             }
@@ -77,7 +77,7 @@ private struct NotebookCellView: View {
                 CodeEditor(text: $source, fontSize: 13, python: kind == "code",
                     onFocus: { store.selectNotebookCell(index, editing: true) },
                     onRun: { advance in store.selectNotebookCell(index); store.runCurrentNotebookCell(advance: advance) },
-                    onEscape: { store.notebookEditing[store.selection ?? UUID()] = nil }, focusRequested: editing)
+                    onEscape: { store.notebookEditing[store.selection ?? UUID()] = nil }, focusRequested: editing, accessibilityName: "Cell \(index + 1) source")
                     .frame(height: min(560, max(90, CGFloat(source.components(separatedBy: "\n").count) * 20 + 24)))
                     .accessibilityLabel("Cell \(index + 1) source")
             }
@@ -93,11 +93,11 @@ private struct NotebookCellView: View {
             Text(kind == "code" ? "In [\(running ? "*" : count)]" : kind.capitalized).font(.caption.monospaced()).foregroundStyle(.secondary)
             Spacer()
             if kind == "code" {
-                Button { store.selectNotebookCell(index); store.runCurrentNotebookCell() } label: { Label("Run", systemImage: "play.fill") }
+                Button { NSApp.keyWindow?.makeFirstResponder(nil); store.selectNotebookCell(index); store.runCurrentNotebookCell() } label: { Label("Run", systemImage: "play.fill") }
                     .buttonStyle(.borderless).disabled(!store.canExecuteNotebookCode).help("Run this cell only (⌘ Enter)").accessibilityLabel("Run cell \(index + 1)")
             } else if kind == "markdown" {
                 Button(editing ? "Render" : "Edit", systemImage: editing ? "checkmark" : "pencil") {
-                    if editing { store.selectNotebookCell(index); store.runCurrentNotebookCell() }
+                    if editing { NSApp.keyWindow?.makeFirstResponder(nil); store.selectNotebookCell(index); store.runCurrentNotebookCell() }
                     else { store.selectNotebookCell(index, editing: true) }
                 }.buttonStyle(.borderless).accessibilityLabel("\(editing ? "Render" : "Edit") Markdown cell \(index + 1)")
             }

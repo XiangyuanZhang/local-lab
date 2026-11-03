@@ -210,7 +210,7 @@ struct ContentView: View {
         }
         Button { withAnimation(reduceMotion ? nil : Motion.gentle) { ai.panelVisible.toggle() } } label: { Label("AI 審碼", systemImage: "sparkles").frame(minWidth: 36, minHeight: 32).contentShape(Rectangle()) }
             .help("AI 審碼（⇧⌘R）").accessibilityIdentifier("ai-toolbar")
-        Button { store.run() } label: { Label("執行", systemImage: "play.fill").frame(minWidth: 36, minHeight: 32).contentShape(Rectangle()) }.disabled(!store.canRun).help("執行目前草稿（⌘ Return）")
+        Button { if store.isNotebookSelected { NSApp.keyWindow?.makeFirstResponder(nil) }; store.run() } label: { Label("執行", systemImage: "play.fill").frame(minWidth: 36, minHeight: 32).contentShape(Rectangle()) }.disabled(!store.canRun).help("執行目前草稿（⌘ Return）")
         Button { store.showConnection = true } label: { Label(store.isReady ? "連線資訊" : "連線", systemImage: "network").frame(minWidth: 36, minHeight: 32).contentShape(Rectangle()) }.disabled(store.busy || store.runningID != nil)
         Menu {
             Button("新增練習 Notebook", systemImage: "book.badge.plus") { store.newNotebook() }

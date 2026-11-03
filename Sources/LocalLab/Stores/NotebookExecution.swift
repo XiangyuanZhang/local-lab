@@ -7,7 +7,7 @@ import Foundation
         guard let draft = selected, let document = try? NotebookDocument(draft.code), document.cells.indices.contains(index) else { return }
         notebookSelection[draft.id] = index
         if editing { notebookEditing[draft.id] = index }
-        if document.cells[index]["cell_type"] as? String == "code" { notebookRecentCode[draft.id] = index }
+        if document.cells[index]["cell_type"] as? String == "code", !document.source(at: index).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { notebookRecentCode[draft.id] = index }
     }
     var reviewNotebookCellIndex: Int? {
         guard let draft = selected, let doc = try? NotebookDocument(draft.code) else { return nil }

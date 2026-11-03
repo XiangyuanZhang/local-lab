@@ -10,6 +10,7 @@ struct CodeEditor: NSViewRepresentable {
     var onRun: ((Bool) -> Void)? = nil
     var onEscape: (() -> Void)? = nil
     var focusRequested = false
+    var accessibilityName = "Python 程式編輯器"
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = WrappingCodeScrollView()
@@ -37,7 +38,7 @@ struct CodeEditor: NSViewRepresentable {
         editor.autoresizingMask = [.width]
         editor.textContainer?.widthTracksTextView = true
         editor.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
-        editor.setAccessibilityLabel("Python 程式編輯器")
+        editor.setAccessibilityLabel(accessibilityName)
         editor.onFocus = onFocus; editor.onRun = onRun; editor.onEscape = onEscape
         editor.string = text; editor.delegate = context.coordinator
         scroll.drawsBackground = !hasBackground; scroll.contentView.drawsBackground = !hasBackground; editor.drawsBackground = !hasBackground
@@ -109,6 +110,7 @@ final class PythonTextView: NSTextView {
     override func keyDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if [36, 76].contains(event.keyCode), let onRun, modifiers.contains(.command) || modifiers.contains(.control) || modifiers.contains(.shift) {
+            window?.makeFirstResponder(nil)
             onRun(modifiers.contains(.shift)); return
         }
         if event.keyCode == 53, let onEscape { onEscape(); return }

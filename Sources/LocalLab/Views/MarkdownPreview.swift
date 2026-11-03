@@ -15,10 +15,10 @@ struct MarkdownPreview: NSViewRepresentable {
         web.navigationDelegate = context.coordinator
         web.widthChanged = { [weak coordinator = context.coordinator, weak web] in if let web { coordinator?.measure(web) } }
         web.underPageBackgroundColor = hasBackground ? .clear : .textBackgroundColor
-        web.setAccessibilityLabel("Markdown 文件預覽")
+        web.setAccessibilityLabel(compact ? "Markdown cell" : "Markdown 文件預覽")
         do {
             var html = try MarkdownHTML.template()
-            if compact { html = html.replacingOccurrences(of: "</head>", with: "<style>body{background:transparent!important}#write{max-width:none;padding:4px 10px 8px;margin:0}#write>:first-child{margin-top:0}.Info,.info{border-left:3px solid var(--link);padding:.5em .8em;background:var(--code)}</style></head>") }
+            if compact { html = html.replacingOccurrences(of: "aria-label=\"Markdown 文件\"", with: "aria-label=\"Markdown document\"").replacingOccurrences(of: "</head>", with: "<style>body{background:transparent!important}#write{max-width:none;padding:4px 10px 8px;margin:0}#write>:first-child{margin-top:0}.Info,.info{border-left:3px solid var(--link);padding:.5em .8em;background:var(--code)}</style></head>") }
             web.loadHTMLString(html, baseURL: nil)
         }
         catch { web.loadHTMLString("<p>本機渲染資源無法載入。</p>", baseURL: nil) }

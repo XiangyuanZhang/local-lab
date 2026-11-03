@@ -78,6 +78,7 @@ struct AIReviewSnapshot: Equatable, Sendable {
             code = notebook.source(at: cellIndex)
         } else { code = cellIndex == nil ? draft.code : "" }
     }
+    var displayName: String { filename + (notebookCellIndex.map { " · Cell \($0 + 1)" } ?? "") }
     func document(applying proposal: String) throws -> String {
         guard let index = notebookCellIndex else {
             if filename.lowercased().hasSuffix(".ipynb") { _ = try NotebookDocument(proposal) }

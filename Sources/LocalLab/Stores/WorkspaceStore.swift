@@ -180,7 +180,7 @@ final class WorkspaceStore: ObservableObject {
         while drafts.contains(where: { $0.name == "practice-\(n).ipynb" }) { n += 1 }
         do {
             var document = try NotebookDocument(NotebookDocument.empty)
-            document.append(kind: "markdown"); document.updateSource(at: 0, text: "# 練習筆記\n\n在這裡記錄題目與想法。")
+            document.append(kind: "markdown"); document.updateSource(at: 0, text: "# Practice notes\n\nWrite the task and your ideas here.")
             document.append(kind: "code")
             let draft = ScriptDraft(name: "practice-\(n).ipynb", code: try document.serialized())
             drafts.append(draft); selection = draft.id; persist()
