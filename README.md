@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Resources/AppIcon.png" alt="local-lab logo" width="128" height="128">
+</p>
+
 > Current release: **1.1.1** (build 5). `VERSION` and `BUILD_NUMBER` are authoritative. See [CHANGELOG.md](CHANGELOG.md), [AI review guide](docs/ai-review.md) and [release conventions](docs/version-management.md). Historical test reports describe the build/date stated in each report.
 
 # Local Lab
